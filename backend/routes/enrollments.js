@@ -255,7 +255,7 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
   try {
     const { materialId, score, totalQuestions } = req.body;
 
-    console.log('🔍 Saving quiz score:', {
+    console.log(' Saving quiz score:', {
       enrollmentId: req.params.id,
       materialId,
       score,
@@ -282,7 +282,7 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
     }
 
     const existingQuizScores = enrollment.quizScores || {};
-    console.log('📊 Existing quiz scores BEFORE update:', existingQuizScores);
+    console.log(' Existing quiz scores BEFORE update:', existingQuizScores);
     
     const percentage = Math.round((score / totalQuestions) * 100);
     
@@ -297,25 +297,25 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
       }
     };
 
-    console.log('📊 Updated quiz scores AFTER merge:', updatedQuizScores);
+    console.log(' Updated quiz scores AFTER merge:', updatedQuizScores);
 
     const allMaterials = await Material.findAll({
       where: { courseId: enrollment.courseId }
     });
 
-    console.log('📚 Total materials found:', allMaterials.length);
+    console.log(' Total materials found:', allMaterials.length);
 
     const quizMaterials = allMaterials.filter(m => m.type === 'quiz');
-    console.log('❓ Total quizzes:', quizMaterials.length);
+    console.log(' Total quizzes:', quizMaterials.length);
 
     // Check if all quizzes are completed with 100%
     const allQuizzesCompleted = quizMaterials.length > 0 && quizMaterials.every(quiz => {
       const isComplete = updatedQuizScores[quiz.id]?.percentage === 100;
-      console.log(`Quiz "${quiz.title}" (ID: ${quiz.id}): ${isComplete ? '✅ Complete' : '❌ Incomplete'} - ${updatedQuizScores[quiz.id]?.percentage || 0}%`);
+      console.log(`Quiz "${quiz.title}" (ID: ${quiz.id}): ${isComplete ? ' Complete' : ' Incomplete'} - ${updatedQuizScores[quiz.id]?.percentage || 0}%`);
       return isComplete;
     });
 
-    console.log('🎯 All quizzes completed:', allQuizzesCompleted);
+    console.log(' All quizzes completed:', allQuizzesCompleted);
 
     // Calculate progress
     const completedQuizzes = Object.keys(updatedQuizScores).filter(
@@ -326,7 +326,7 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
       ? Math.round((completedQuizzes / quizMaterials.length) * 100)
       : 0;
 
-    console.log('📈 Progress:', progress, `(${completedQuizzes}/${quizMaterials.length} quizzes completed)`);
+    console.log(' Progress:', progress, `(${completedQuizzes}/${quizMaterials.length} quizzes completed)`);
 
     await enrollment.update({
       quizScores: updatedQuizScores,  
@@ -335,7 +335,7 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
       progress
     });
 
-    console.log('✅ Enrollment updated successfully');
+    console.log(' Enrollment updated successfully');
 
     // Fetch fresh enrollment with all data
     const freshEnrollment = await Enrollment.findByPk(enrollment.id, {
@@ -357,7 +357,7 @@ router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
       progress
     });
   } catch (error) {
-    console.error('❌ Update quiz score error:', error);
+    console.error(' Update quiz score error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -393,16 +393,16 @@ router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    console.log('📚 Fetching materials for courseId:', enrollment.courseId);
+    console.log(' Fetching materials for courseId:', enrollment.courseId);
 
     const allMaterials = await Material.findAll({
       where: { courseId: enrollment.courseId }
     });
     
-    console.log('📊 Materials found:', allMaterials.length);
+    console.log(' Materials found:', allMaterials.length);
 
     const quizMaterials = allMaterials.filter(m => m.type === 'quiz');
-    console.log('❓ Quiz materials:', quizMaterials.length);
+    console.log(' Quiz materials:', quizMaterials.length);
 
     const quizScores = enrollment.quizScores || {};
 
@@ -420,7 +420,7 @@ router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
           return isComplete;
         });
 
-    console.log('🎯 All quizzes completed:', allQuizzesCompleted);
+    console.log(' All quizzes completed:', allQuizzesCompleted);
 
     if (!allQuizzesCompleted) {
       return res.status(400).json({ 
@@ -454,7 +454,7 @@ router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
       ]
     });
 
-    console.log('✅ Course marked as complete!');
+    console.log(' Course marked as complete!');
     console.log('👤 Learner data:', updatedEnrollment.learner);
     
     return res.json({ 
@@ -462,7 +462,7 @@ router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
       enrollment: updatedEnrollment 
     });
   } catch (error) {
-    console.error('❌ Complete course error:', error);
+    console.error(' Complete course error:', error);
     res.status(500).json({ 
       message: 'Failed to complete course', 
       error: error.message 

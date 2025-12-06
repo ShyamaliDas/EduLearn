@@ -114,7 +114,7 @@ function AllCourses() {
       {/* Courses Grid */}
       {filteredCourses.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📚</div>
+          <div className="empty-icon"><i className="bi bi-book" style={{ color: '#6B7C5E' }}></i></div>
           <h2>No Courses Found</h2>
           <p>Check back later for new courses!</p>
         </div>

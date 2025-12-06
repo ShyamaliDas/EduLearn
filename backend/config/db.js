@@ -10,7 +10,6 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
       rejectUnauthorized: false
     }
   },
-  timezone: '+12:00', 
   logging: false
 });
 

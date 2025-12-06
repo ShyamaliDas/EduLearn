@@ -16,7 +16,7 @@ function Navbar() {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="logo">
-          <img src="/logo.png" alt="LMS" className="logo-img" />
+          <img src="/logo.png" className="logo-img" />
           <span>EduLearn</span>
         </Link>
 
@@ -52,8 +52,8 @@ function Navbar() {
               )}
 
               <button onClick={handleLogout} className="btn-logout">
-                Logout
               </button>
+              
             </>
           )}
         </div>

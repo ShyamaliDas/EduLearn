@@ -161,7 +161,7 @@ p {
 .logo {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 5px;
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--color-primary);
@@ -174,8 +174,7 @@ p {
 }
 
 .logo-img {
-  width: 45px;
-  height: 45px;
+  height: 70px;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(107, 124, 94, 0.2));
 }
@@ -1244,3 +1243,4 @@ a:focus-visible {
   color: var(--color-gray-500);
   font-style: italic;
 }
+
