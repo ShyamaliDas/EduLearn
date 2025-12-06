@@ -110,6 +110,7 @@ function Profile() {
       if (storedUser?.profile) {
         setProfileForm({
           name: storedUser.profile.name || '',
+          profilePicture: storedUser.profile.profilePicture || '',
           email: storedUser.email || '',
           contact: storedUser.profile.contact || '',
           education: storedUser.profile.education || '',
@@ -191,6 +192,10 @@ function Profile() {
 
   const isInstructor = user.role === 'instructor';
 
+  console.log('User object:', user);
+  console.log('Profile picture value:', user?.profile?.profilePicture);
+
+
   return (
     <div className="container" style={{ maxWidth: '1100px', paddingTop: '2rem', paddingBottom: '3rem' }}>
       {/* Profile Header */}
@@ -208,7 +213,11 @@ function Profile() {
               marginBottom: '1rem'
             }}>
               <img
-                src={user.profile?.profilePicture || 'https://via.placeholder.com/150?text=User'}
+                src={
+                  user.profile?.profilePicture
+                    ? `http://localhost:5000${user.profile.profilePicture}`
+                    : 'https://via.placeholder.com/400x200?text=No+Image'
+                }
                 alt="Profile"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />

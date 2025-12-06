@@ -10,7 +10,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "https://edulearn.onrender.com"]
+  origin: ["http://localhost:3000", "https://edulearn-web.onrender.com"]
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

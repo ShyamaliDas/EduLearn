@@ -51,7 +51,7 @@ function Navbar() {
                 </>
               )}
 
-              <button onClick={handleLogout} className="btn-logout">
+              <button onClick={handleLogout} className="btn-logout">Logout
               </button>
               
             </>
