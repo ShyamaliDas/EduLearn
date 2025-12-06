@@ -9,7 +9,9 @@ console.log('Starting server initialization...');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:3000", "https://edulearn.onrender.com"]
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -78,20 +80,20 @@ const createDefaultInstructors = async () => {
           ...instructor,
           password: hashedPassword
         });
-        console.log(`✅ Created instructor: ${instructor.username}`);
+        console.log(` Created instructor: ${instructor.username}`);
       } else {
-        console.log(`ℹ️  Instructor already exists: ${instructor.username}`);
+        console.log(`ℹ  Instructor already exists: ${instructor.username}`);
       }
     }
 
-    console.log('✅ Default instructors setup complete');
+    console.log(' Default instructors setup complete');
   } catch (error) {
-    console.error('❌ Error creating default instructors:', error);
+    console.error(' Error creating default instructors:', error);
   }
 };
 
 db.sequelize.sync({ alter: true }).then(async () => {
-  console.log('✅ Database synced - All tables recreated');
+  console.log(' Database synced - All tables recreated');
   
   await createDefaultInstructors();
   
@@ -115,13 +117,13 @@ db.sequelize.sync({ alter: true }).then(async () => {
   // Start server
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`\n✅ Server running on port ${PORT}`);
-    console.log(`📚 Default instructors available:`);
+    console.log(`\n Server running on port ${PORT}`);
+    console.log(` Default instructors available:`);
     console.log(`   - instructor1@edulearn.com / password123`);
     console.log(`   - instructor2@edulearn.com / password123`);
     console.log(`   - instructor3@edulearn.com / password123`);
   });
 }).catch(err => {
-  console.error('❌ Error syncing database:', err);
+  console.error(' Error syncing database:', err);
   process.exit(1);
 });
