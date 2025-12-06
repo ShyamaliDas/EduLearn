@@ -22,6 +22,10 @@ const initializeDatabase = async () => {
 
 initializeDatabase();
 
+app.get('/', (req, res) => {
+  res.send('Bank Service is active and running!');
+});
+
 // Routes
 app.use('/api/bank', require('./routes/bank'));
 
