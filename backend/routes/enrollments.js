@@ -11,27 +11,24 @@ router.post('/', auth, learnerAuth, async (req, res) => {
 
     // Check if already enrolled
     const existingEnrollment = await Enrollment.findOne({
-      where: {
-        learnerId: req.user.id,
-        courseId: courseId
-      }
+      where: { learnerId: req.user.id, courseId: courseId }
     });
 
     if (existingEnrollment) {
       return res.status(400).json({ message: 'Already enrolled in this course' });
     }
 
-    // Get course details with duration
+    // Get course details
     const course = await Course.findByPk(courseId, {
-      include: [{
-        model: User,
-        as: 'instructor',
-        attributes: ['id', 'username', 'bankAccount']
-      }]
+      include: [{ model: User, as: 'instructor', attributes: ['id', 'username', 'bankAccount'] }]
     });
 
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
+    }
+
+    if (course.status !== 'active') {
+      return res.status(400).json({ message: 'This course is not available for enrollment' });
     }
 
     // Get learner's bank account
@@ -45,19 +42,20 @@ router.post('/', auth, learnerAuth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid bank secret code' });
     }
 
+    // Calculate deadline
     const calculateDeadline = (duration) => {
       const now = new Date();
-      const durationMatch = duration.match(/(\d+)\s*(week|month|day|year)s?/i);
-      
+      const durationMatch = duration.match(/(\d+)\s*(week|month|day|years?)/i);
+
       if (!durationMatch) {
         now.setMonth(now.getMonth() + 3);
         return now;
       }
-      
+
       const [, amount, unit] = durationMatch;
       const value = parseInt(amount);
-      
-      switch(unit.toLowerCase()) {
+
+      switch (unit.toLowerCase()) {
         case 'day':
           now.setDate(now.getDate() + value);
           break;
@@ -73,64 +71,59 @@ router.post('/', auth, learnerAuth, async (req, res) => {
         default:
           now.setMonth(now.getMonth() + 3);
       }
-      
+
       return now;
     };
 
     const deadline = calculateDeadline(course.duration);
-    console.log('🗓️ Enrollment deadline calculated:', deadline);
 
     try {
-      const paymentResponse = await axios.post(
-        `${process.env.BANK_SERVICE_URL}/api/bank/transfer`,
+      // Create enrollment with paymentValidated = false
+      const enrollment = await Enrollment.create({
+        learnerId: req.user.id,
+        courseId: courseId,
+        paymentValidated: false,
+        deadline: deadline,
+        transactionId: null
+      });
+
+      // Create pending transaction in bank
+      const pendingResponse = await axios.post(
+        `${process.env.BANK_SERVICE_URL}/api/bank/enrollment-pending`,
         {
-          fromAccount: learner.bankAccount.accountNumber,
-          toAccount: course.instructor.bankAccount.accountNumber,
+          learnerAccount: learner.bankAccount.accountNumber,
+          instructorAccount: course.instructor.bankAccount.accountNumber,
           amount: course.price,
-          description: `Enrollment fee for ${course.title}`
+          courseTitle: course.title,
+          courseId: courseId,
+          enrollmentId: enrollment.id
         }
       );
 
-      if (paymentResponse.data.success) {
-        const enrollment = await Enrollment.create({
-          learnerId: req.user.id,
-          courseId: courseId,
-          transactionId: paymentResponse.data.transaction.id,
-          deadline: deadline  
-        });
-
-        await course.increment('enrolledCount');
+      if (pendingResponse.data.success) {
+        enrollment.transactionId = pendingResponse.data.transactionId;
+        await enrollment.save();
 
         const enrollmentWithDetails = await Enrollment.findByPk(enrollment.id, {
           include: [
-            {
-              model: Course,
-              as: 'course',
-              include: [{
-                model: User,
-                as: 'instructor',
-                attributes: ['id', 'username', 'profile']
-              }]
-            },
-            {
-              model: User,
-              as: 'learner',
-              attributes: ['id', 'username', 'profile']
-            }
+            { model: Course, as: 'course', include: [{ model: User, as: 'instructor', attributes: ['id', 'username', 'profile'] }] },
+            { model: User, as: 'learner', attributes: ['id', 'username', 'profile'] }
           ]
         });
 
         res.status(201).json({
-          message: 'Successfully enrolled in course',
+          message: 'Enrollment submitted! Pending bank validation. Please wait for approval.',
           enrollment: enrollmentWithDetails,
           deadline: deadline.toLocaleDateString()
         });
+      } else {
+        await enrollment.destroy();
+        return res.status(400).json({ message: 'Failed to create bank transaction' });
       }
     } catch (bankError) {
       console.error('Bank service error:', bankError);
-      return res.status(400).json({
-        message: bankError.response?.data?.message || 'Payment failed'
-      });
+      if (enrollment) await enrollment.destroy();
+      return res.status(400).json({ message: bankError.response?.data?.message || 'Payment failed' });
     }
   } catch (error) {
     console.error('Enrollment error:', error);
@@ -162,29 +155,26 @@ router.get('/my-enrollments', auth, learnerAuth, async (req, res) => {
   }
 });
 
-
-// Check if enrollment is still valid (before deadline)
+// Check if enrollment is still valid
 router.get('/check-access/:courseId', auth, learnerAuth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
 
     const enrollment = await Enrollment.findOne({
-      where: {
-        learnerId: req.user.id,
-        courseId: courseId
-      },
-      include: [
-        {
-          model: Course,
-          as: 'course'
-        }
-      ]
+      where: { learnerId: req.user.id, courseId: courseId },
+      include: [{ model: Course, as: 'course' }]
     });
 
     if (!enrollment) {
-      return res.status(404).json({ 
-        message: 'Enrollment not found',
-        hasAccess: false 
+      return res.status(404).json({ message: 'Enrollment not found', hasAccess: false });
+    }
+
+    // Check if payment is validated
+    if (!enrollment.paymentValidated) {
+      return res.json({
+        hasAccess: false,
+        pending: true,
+        message: 'Your enrollment is pending bank validation. Please wait...'
       });
     }
 
@@ -202,7 +192,6 @@ router.get('/check-access/:courseId', auth, learnerAuth, async (req, res) => {
       });
     }
 
-    // Calculate days remaining
     const daysRemaining = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
 
     res.json({
@@ -218,227 +207,20 @@ router.get('/check-access/:courseId', auth, learnerAuth, async (req, res) => {
   }
 });
 
-
-// Get single enrollment details
-router.get('/:id', auth, async (req, res) => {
+// Get enrollment by course ID
+router.get('/course/:courseId', auth, learnerAuth, async (req, res) => {
   try {
-    const enrollment = await Enrollment.findByPk(req.params.id, {
-      include: [{
-        model: Course,
-        as: 'course',
-        include: [{
-          model: User,
-          as: 'instructor',
-          attributes: ['id', 'username', 'profile']
-        }]
-      }]
-    });
+    const courseId = parseInt(req.params.courseId);
 
-    if (!enrollment) {
-      return res.status(404).json({ message: 'Enrollment not found' });
-    }
-
-    if (enrollment.learnerId !== req.user.id && req.user.role !== 'instructor') {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    res.json(enrollment);
-  } catch (error) {
-    console.error('Get enrollment error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-
-
-router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
-  try {
-    const { materialId, score, totalQuestions } = req.body;
-
-    console.log(' Saving quiz score:', {
-      enrollmentId: req.params.id,
-      materialId,
-      score,
-      totalQuestions
-    });
-
-    const enrollment = await Enrollment.findByPk(req.params.id, {
-      include: [{
-        model: Course,
-        as: 'course',
-        include: [{
-          model: User,
-          as: 'instructor'
-        }]
-      }]
-    });
-
-    if (!enrollment) {
-      return res.status(404).json({ message: 'Enrollment not found' });
-    }
-
-    if (enrollment.learnerId !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    const existingQuizScores = enrollment.quizScores || {};
-    console.log(' Existing quiz scores BEFORE update:', existingQuizScores);
-    
-    const percentage = Math.round((score / totalQuestions) * 100);
-    
-    // Merge new score with existing scores
-    const updatedQuizScores = {
-      ...existingQuizScores,  
-      [materialId]: {
-        score,
-        totalQuestions,
-        percentage,
-        completedAt: new Date()
-      }
-    };
-
-    console.log(' Updated quiz scores AFTER merge:', updatedQuizScores);
-
-    const allMaterials = await Material.findAll({
-      where: { courseId: enrollment.courseId }
-    });
-
-    console.log(' Total materials found:', allMaterials.length);
-
-    const quizMaterials = allMaterials.filter(m => m.type === 'quiz');
-    console.log(' Total quizzes:', quizMaterials.length);
-
-    // Check if all quizzes are completed with 100%
-    const allQuizzesCompleted = quizMaterials.length > 0 && quizMaterials.every(quiz => {
-      const isComplete = updatedQuizScores[quiz.id]?.percentage === 100;
-      console.log(`Quiz "${quiz.title}" (ID: ${quiz.id}): ${isComplete ? ' Complete' : ' Incomplete'} - ${updatedQuizScores[quiz.id]?.percentage || 0}%`);
-      return isComplete;
-    });
-
-    console.log(' All quizzes completed:', allQuizzesCompleted);
-
-    // Calculate progress
-    const completedQuizzes = Object.keys(updatedQuizScores).filter(
-      id => updatedQuizScores[id].percentage === 100
-    ).length;
-    
-    const progress = quizMaterials.length > 0
-      ? Math.round((completedQuizzes / quizMaterials.length) * 100)
-      : 0;
-
-    console.log(' Progress:', progress, `(${completedQuizzes}/${quizMaterials.length} quizzes completed)`);
-
-    await enrollment.update({
-      quizScores: updatedQuizScores,  
-      completed: allQuizzesCompleted,
-      completedAt: allQuizzesCompleted ? new Date() : null,
-      progress
-    });
-
-    console.log(' Enrollment updated successfully');
-
-    // Fetch fresh enrollment with all data
-    const freshEnrollment = await Enrollment.findByPk(enrollment.id, {
-      include: [{
-        model: Course,
-        as: 'course',
-        include: [{
-          model: User,
-          as: 'instructor',
-          attributes: ['id', 'username', 'profile']
-        }]
-      }]
-    });
-
-    res.json({
-      message: 'Quiz score saved successfully',
-      enrollment: freshEnrollment,
-      allQuizzesCompleted,
-      progress
-    });
-  } catch (error) {
-    console.error(' Update quiz score error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
-  try {
-    console.log('🎓 Attempting to complete course, enrollmentId:', req.params.id);
-
-    const enrollment = await Enrollment.findByPk(req.params.id, {
+    const enrollment = await Enrollment.findOne({
+      where: {
+        learnerId: req.user.id,
+        courseId: courseId,
+        //paymentValidated: true
+      },
       include: [
-        { 
-          model: Course, 
-          as: 'course',
-          include: [{
-            model: User,
-            as: 'instructor',
-            attributes: ['id', 'username', 'profile']
-          }]
-        },
         {
-          model: User,
-          as: 'learner',  
-          attributes: ['id', 'username', 'profile']
-        }
-      ]
-    });
-
-    if (!enrollment) {
-      return res.status(404).json({ message: 'Enrollment not found' });
-    }
-    
-    if (enrollment.learnerId !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    console.log(' Fetching materials for courseId:', enrollment.courseId);
-
-    const allMaterials = await Material.findAll({
-      where: { courseId: enrollment.courseId }
-    });
-    
-    console.log(' Materials found:', allMaterials.length);
-
-    const quizMaterials = allMaterials.filter(m => m.type === 'quiz');
-    console.log(' Quiz materials:', quizMaterials.length);
-
-    const quizScores = enrollment.quizScores || {};
-
-    const allQuizzesCompleted = quizMaterials.length === 0
-      ? true
-      : quizMaterials.every(quiz => {
-          const score = quizScores[quiz.id];
-          const percentage = score?.percentage ?? 0;
-          const isComplete = percentage === 100;
-          console.log(
-            `Quiz ${quiz.id} "${quiz.title}":`,
-            isComplete ? '✅' : '❌',
-            `(${percentage}%)`
-          );
-          return isComplete;
-        });
-
-    console.log(' All quizzes completed:', allQuizzesCompleted);
-
-    if (!allQuizzesCompleted) {
-      return res.status(400).json({ 
-        message: 'You must complete all quizzes with 100% before completing the course' 
-      });
-    }
-
-    await enrollment.update({
-      completed: true,
-      completedAt: new Date(),
-      progress: 100
-    });
-
-
-    const updatedEnrollment = await Enrollment.findByPk(enrollment.id, {
-      include: [
-        { 
-          model: Course, 
+          model: Course,
           as: 'course',
           include: [{
             model: User,
@@ -454,38 +236,28 @@ router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
       ]
     });
 
-    console.log(' Course marked as complete!');
-    console.log('👤 Learner data:', updatedEnrollment.learner);
-    
-    return res.json({ 
-      message: 'Course completed successfully!', 
-      enrollment: updatedEnrollment 
-    });
+    if (!enrollment) {
+      return res.status(404).json({ message: 'Enrollment not found or not validated' });
+    }
+
+    if (!enrollment.paymentValidated) {
+      return res.status(403).json({ 
+        message: 'Enrollment pending validation',
+        pending: true 
+      });
+    }
+
+    res.json(enrollment);
   } catch (error) {
-    console.error(' Complete course error:', error);
-    res.status(500).json({ 
-      message: 'Failed to complete course', 
-      error: error.message 
-    });
+    console.error('Get enrollment error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-
-// Get enrollment by course ID
-router.get('/course/:courseId', auth, learnerAuth, async (req, res) => {
+// Get enrollment by ID (for quiz submission)
+router.get('/:id', auth, learnerAuth, async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
-
-    console.log('Looking for enrollment:', {
-      learnerId: req.user.id,
-      courseId: courseId
-    });
-
-    const enrollment = await Enrollment.findOne({
-      where: {
-        learnerId: req.user.id,
-        courseId: courseId
-      },
+    const enrollment = await Enrollment.findByPk(req.params.id, {
       include: [
         {
           model: Course,
@@ -498,7 +270,7 @@ router.get('/course/:courseId', auth, learnerAuth, async (req, res) => {
         },
         {
           model: User,
-          as: 'learner',  
+          as: 'learner',
           attributes: ['id', 'username', 'profile']
         }
       ]
@@ -508,21 +280,99 @@ router.get('/course/:courseId', auth, learnerAuth, async (req, res) => {
       return res.status(404).json({ message: 'Enrollment not found' });
     }
 
-    console.log('Found enrollment:', enrollment.id);
-    console.log('Learner data:', enrollment.learner);
+    if (enrollment.learnerId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
     res.json(enrollment);
   } catch (error) {
-    console.error('Get enrollment error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Get enrollment by ID error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Update progress
-router.put('/:id/progress', auth, learnerAuth, async (req, res) => {
+// Validate enrollment from bank
+router.post('/:id/validate', async (req, res) => {
   try {
-    const { progress } = req.body;
+    const { transactionId, validated } = req.body;
+    const enrollmentId = req.params.id;
 
-    const enrollment = await Enrollment.findByPk(req.params.id);
+    console.log(`Received validation request for enrollment ${enrollmentId}`);
+    console.log(`Transaction ID: ${transactionId}, Validated: ${validated}`);
+
+    const enrollment = await Enrollment.findByPk(enrollmentId);
+
+    if (!enrollment) {
+      console.log(`Enrollment ${enrollmentId} NOT FOUND`);
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    console.log(`Current paymentValidated status: ${enrollment.paymentValidated}`);
+
+    if (validated) {
+      enrollment.paymentValidated = true;
+      await enrollment.save();
+
+      console.log(`Enrollment ${enrollmentId} NOW VALIDATED!`);
+
+      // Increment course enrolled count
+      const course = await Course.findByPk(enrollment.courseId);
+      if (course) {
+        await course.increment('enrolledCount');
+        console.log(`Course ${course.id} enrolled count incremented`);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Validate enrollment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// Delete enrollment (when bank rejects)
+router.delete('/:id', async (req, res) => {
+  try {
+    const enrollmentId = req.params.id;
+    
+    console.log(`Received request to delete enrollment ${enrollmentId}`);
+    
+    const enrollment = await Enrollment.findByPk(enrollmentId);
+    
+    if (!enrollment) {
+      console.log(`Enrollment ${enrollmentId} not found`);
+      return res.json({ success: true, message: 'Enrollment not found (may be already deleted)' });
+    }
+
+    if (enrollment.paymentValidated) {
+      console.log(`cannot delete validated enrollment ${enrollmentId}`);
+      return res.status(400).json({ message: 'Cannot delete validated enrollment' });
+    }
+
+    await enrollment.destroy();
+    
+    console.log(`Enrollment ${enrollmentId} deleted successfully`);
+    
+    res.json({ success: true, message: 'Enrollment deleted successfully' });
+  } catch (error) {
+    console.error('Delete enrollment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+
+// Complete course
+router.put('/:id/complete', auth, learnerAuth, async (req, res) => {
+  try {
+    const enrollment = await Enrollment.findByPk(req.params.id, {
+      include: [{
+        model: Course,
+        as: 'course',
+        include: [{ model: User, as: 'instructor' }]
+      }]
+    });
 
     if (!enrollment) {
       return res.status(404).json({ message: 'Enrollment not found' });
@@ -532,21 +382,126 @@ router.put('/:id/progress', auth, learnerAuth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    await enrollment.update({
-      progress,
-      completed: progress >= 100,
-      completedAt: progress >= 100 ? new Date() : null
+    if (!enrollment.paymentValidated) {
+      return res.status(400).json({ message: 'Cannot complete course - enrollment not validated' });
+    }
+
+    // Mark as completed
+    enrollment.completed = true;
+    enrollment.completedAt = new Date();
+    enrollment.progress = 100;
+    await enrollment.save();
+
+    const updatedEnrollment = await Enrollment.findByPk(enrollment.id, {
+      include: [
+        {
+          model: Course,
+          as: 'course',
+          include: [{
+            model: User,
+            as: 'instructor',
+            attributes: ['id', 'username', 'profile']
+          }]
+        },
+        {
+          model: User,
+          as: 'learner',
+          attributes: ['id', 'username', 'profile']
+        }
+      ]
     });
 
-    res.json(enrollment);
+    res.json({
+      message: 'Course completed successfully!',
+      enrollment: updatedEnrollment
+    });
   } catch (error) {
-    console.error('Update progress error:', error);
+    console.error('Complete course error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
+// Save quiz score
+router.post('/:id/quiz-score', auth, learnerAuth, async (req, res) => {
+  try {
+    const { materialId, score, totalQuestions } = req.body;
 
+    const enrollment = await Enrollment.findByPk(req.params.id, {
+      include: [{
+        model: Course,
+        as: 'course',
+        include: [{ model: User, as: 'instructor' }]
+      }]
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    if (enrollment.learnerId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (!enrollment.paymentValidated) {
+      return res.status(400).json({ message: 'Cannot submit quiz - enrollment not validated' });
+    }
+
+    const existingQuizScores = enrollment.quizScores || {};
+    const percentage = Math.round((score / totalQuestions) * 100);
+
+    const updatedQuizScores = {
+      ...existingQuizScores,
+      [materialId]: {
+        score,
+        totalQuestions,
+        percentage,
+        completedAt: new Date()
+      }
+    };
+
+    const allMaterials = await Material.findAll({
+      where: { courseId: enrollment.courseId }
+    });
+
+    const quizMaterials = allMaterials.filter(m => m.type === 'quiz');
+
+    const allQuizzesCompleted = quizMaterials.length > 0 && quizMaterials.every(quiz => {
+      return updatedQuizScores[quiz.id]?.percentage === 100;
+    });
+
+    const completedQuizzes = Object.keys(updatedQuizScores).filter(
+      id => updatedQuizScores[id].percentage === 100
+    ).length;
+
+    const progress = quizMaterials.length > 0
+      ? Math.round((completedQuizzes / quizMaterials.length) * 100)
+      : 0;
+
+    await enrollment.update({
+      quizScores: updatedQuizScores,
+      completed: allQuizzesCompleted,
+      completedAt: allQuizzesCompleted ? new Date() : null,
+      progress
+    });
+
+    const freshEnrollment = await Enrollment.findByPk(enrollment.id, {
+      include: [{
+        model: Course,
+        as: 'course',
+        include: [{ model: User, as: 'instructor', attributes: ['id', 'username', 'profile'] }]
+      }]
+    });
+
+    res.json({
+      message: 'Quiz score saved successfully',
+      enrollment: freshEnrollment,
+      allQuizzesCompleted,
+      progress
+    });
+  } catch (error) {
+    console.error('Update quiz score error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 module.exports = router;
-
-

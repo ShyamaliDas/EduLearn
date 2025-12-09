@@ -235,7 +235,8 @@ function InstructorCourseView() {
                 boxShadow: 'var(--shadow-md)'
               }}
             >
-              <source src={`http://localhost:5000${selectedMaterial.content}`} type="video/mp4" />
+              <source src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+                type="video/mp4" />
               Your browser does not support the video tag.
             </video>
           </div>
@@ -247,7 +248,8 @@ function InstructorCourseView() {
               {selectedMaterial.title}
             </h3>
             <audio controls style={{ width: '100%' }}>
-              <source src={`http://localhost:5000${selectedMaterial.content}`} type="audio/mpeg" />
+              <source src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+                type="audio/mpeg" />
               Your browser does not support the audio element.
             </audio>
           </div>
@@ -259,7 +261,8 @@ function InstructorCourseView() {
               {selectedMaterial.title}
             </h3>
             <img
-              src={`http://localhost:5000${selectedMaterial.content}`}
+              src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+
               alt={selectedMaterial.title}
               style={{
                 width: '100%',
@@ -278,7 +281,8 @@ function InstructorCourseView() {
               {selectedMaterial.title}
             </h3>
             <iframe
-              src={`http://localhost:5000${selectedMaterial.content}`}
+              src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+
               title={selectedMaterial.title}
               style={{
                 width: '100%',

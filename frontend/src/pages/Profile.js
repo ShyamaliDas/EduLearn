@@ -8,7 +8,6 @@ function Profile() {
   const [user, setUser] = useState(null);
   const [bankStatus, setBankStatus] = useState(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
-  const [showBankSetup, setShowBankSetup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profileForm, setProfileForm] = useState({
     name: '',
@@ -27,12 +26,8 @@ function Profile() {
     bio: '',
     qualification: ''
   });
-  const [bankForm, setBankForm] = useState({ secretCode: '' });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [setupError, setSetupError] = useState('');
-  const [setupSuccess, setSetupSuccess] = useState('');
-  const [settingUp, setSettingUp] = useState(false);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -146,45 +141,7 @@ function Profile() {
     }
   };
 
-  const handleBankSetup = async (e) => {
-    e.preventDefault();
-    setSetupError('');
-    setSetupSuccess('');
-    setSettingUp(true);
 
-    if (!bankForm.secretCode || bankForm.secretCode.length < 6) {
-      setSetupError('Secret code must be at least 6 characters');
-      setSettingUp(false);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:5000/api/bank/setup',
-        { secretCode: bankForm.secretCode },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setSetupSuccess(response.data.message);
-      const updatedUser = { ...user };
-      if (!updatedUser.bankAccount) updatedUser.bankAccount = {};
-      updatedUser.bankAccount.isSetup = true;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-
-      setTimeout(() => {
-        setShowBankSetup(false);
-        setBankForm({ secretCode: '' });
-        fetchBankStatus();
-        setSetupSuccess('');
-      }, 2000);
-    } catch (error) {
-      console.error('Error setting up bank:', error);
-      setSetupError(error.response?.data?.message || 'Failed to setup bank account');
-    } finally {
-      setSettingUp(false);
-    }
-  };
 
   if (loading) {
     return <div className="loading">Loading profile...</div>;
@@ -294,6 +251,13 @@ function Profile() {
                 <div className="profile-info-value">{user.email}</div>
               </div>
 
+
+              <div className="profile-info-item">
+                <div className="profile-info-label">Contact no</div>
+                <div className="profile-info-value">{user.profile?.contact || 'Not specified'}</div>
+              </div>
+
+
               {user.profile?.bio && (
                 <div className="profile-info-item">
                   <div className="profile-info-label">Bio</div>
@@ -308,6 +272,11 @@ function Profile() {
               <div className="profile-info-item">
                 <div className="profile-info-label">Email</div>
                 <div className="profile-info-value">{user.email}</div>
+              </div>
+
+              <div className="profile-info-item">
+                <div className="profile-info-label">Contact no</div>
+                <div className="profile-info-value">{user.profile?.contact || 'Not specified'}</div>
               </div>
 
               <div className="profile-info-item">
@@ -352,75 +321,41 @@ function Profile() {
             Bank Account
           </h2>
 
-          {bankStatus?.isSetup ? (
-            <div>
-              <div style={{
-                padding: '1.5rem',
-                background: 'var(--color-secondary-light)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '1rem'
-              }}>
+
+          <div>
+            {bankStatus ? (
+              <div style={{ padding: '1.5rem', background: 'var(--color-secondary-light)', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', marginBottom: '0.25rem' }}>
-                    Account Number
-                  </div>
-                  <div style={{
-                    fontWeight: '600',
-                    fontSize: '1.1rem',
-                    color: 'var(--color-primary)',
-                    fontFamily: 'monospace'
-                  }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', marginBottom: '0.25rem' }}>Account Number</div>
+                  <div style={{ fontWeight: '600', fontSize: '1.1rem', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
                     {bankStatus.accountNumber}
                   </div>
                 </div>
-
                 <div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', marginBottom: '0.25rem' }}>
-                    Current Balance
-                  </div>
-                  <div style={{
-                    fontWeight: '700',
-                    fontSize: '1.75rem',
-                    color: 'var(--color-primary)'
-                  }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', marginBottom: '0.25rem' }}>Current Balance</div>
+                  <div style={{ fontWeight: '700', fontSize: '1.75rem', color: 'var(--color-primary)' }}>
                     ৳{bankStatus.balance || 0}
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => navigate('/transactions')}
-                className="btn btn-primary"
-                style={{ width: '100%' }}
-              >
-                View Transactions
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div style={{
-                padding: '1.5rem',
-                background: 'var(--color-gray-50)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '1rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><i className="bi bi-bank" style={{ color: '#6B7C5E' }}></i></div>
-                <p style={{ color: 'var(--color-gray-600)', marginBottom: '0' }}>
-                  Setup your bank account to {user.role === 'learner' ? 'enroll in courses' : 'create courses and receive payments'}.
-                  {user.role === 'learner' && ' You will receive ৳10,000 initially.'}
+            ) : (
+              <div style={{ padding: '1.5rem', background: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', textAlign: 'center' }}>
+                <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>
+                  <i className="bi bi-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                  No bank account linked yet.
                 </p>
               </div>
+            )}
 
-              <button
-                onClick={() => setShowBankSetup(true)}
-                className="btn btn-primary"
-                style={{ width: '100%' }}
-              >
-                Setup Bank Account
+
+            {bankStatus && (
+              <button onClick={() => navigate('/transactions')} className="btn btn-primary" style={{ width: '100%' }}>
+                View Transactions
               </button>
-            </div>
-          )}
+            )}
+
+          </div>
+
         </div>
       </div>
 
@@ -625,53 +560,7 @@ function Profile() {
       )}
 
 
-      {/* Bank Setup Modal */}
-      {showBankSetup && (
-        <div className="modal-overlay" onClick={() => setShowBankSetup(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Setup Bank Account</h2>
-              <button className="modal-close" onClick={() => setShowBankSetup(false)}><i className="bi bi-x-lg" style={{ color: '#6B7C5E' }}></i>
-              </button>
-            </div>
 
-            {setupError && <div className="error-message">{setupError}</div>}
-            {setupSuccess && <div className="success-message">{setupSuccess}</div>}
-
-            <form onSubmit={handleBankSetup}>
-              <div className="form-group">
-                <label>Secret Code</label>
-                <input
-                  type="password"
-                  value={bankForm.secretCode}
-                  onChange={(e) => setBankForm({ ...bankForm, secretCode: e.target.value })}
-                  placeholder="Create a 6+ character secret code"
-                  required
-                  minLength={6}
-                />
-                <small>This code will secure your banking transactions</small>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowBankSetup(false)}
-                  className="btn btn-outline"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={settingUp}
-                >
-                  {settingUp ? 'Setting up...' : 'Setup Account'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -15,6 +15,9 @@ function CourseDetails() {
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [error, setError] = useState('');
   const user = JSON.parse(localStorage.getItem('user'));
+  const [enrollmentMessage, setEnrollmentMessage] = useState('');
+  const [enrollmentPending, setEnrollmentPending] = useState(false);
+
 
   useEffect(() => {
     fetchCourse();
@@ -37,23 +40,39 @@ function CourseDetails() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
+        setIsEnrolled(false);
+        setEnrollmentPending(false);
         setLoading(false);
         return;
       }
 
+      // Check for ANY enrollment (validated or pending)
       const response = await axios.get(
-        `http://localhost:5000/api/enrollments/course/${id}`,
+        `http://localhost:5000/api/enrollments/check-access/${id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setIsEnrolled(true);
+
+      if (response.data.hasAccess) {
+        setIsEnrolled(true);
+        setEnrollmentPending(false);
+      } else if (response.data.pending) {
+        setIsEnrolled(false);
+        setEnrollmentPending(true);
+      } else {
+        setIsEnrolled(false);
+        setEnrollmentPending(false);
+      }
     } catch (error) {
       if (error.response?.status === 404) {
         setIsEnrolled(false);
+        setEnrollmentPending(false);
       }
     } finally {
       setLoading(false);
     }
   };
+
+
 
   const fetchMaterials = async () => {
     try {
@@ -101,28 +120,43 @@ function CourseDetails() {
   };
 
   const handleEnroll = async (e) => {
+
     e.preventDefault();
+
+    if (!bankSecret) {
+      setError('Please enter your bank secret code');
+      return;
+    }
+
+
     setEnrolling(true);
+    setEnrollmentMessage('');
     setError('');
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
+      const response = await axios.post(
         'http://localhost:5000/api/enrollments',
-        { courseId: id, bankSecret },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          courseId: course.id,
+          bankSecret: bankSecret
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
 
-      alert('Successfully enrolled in course!');
-      navigate('/my-courses');
-    } catch (error) {
-      setError(error.response?.data?.message || 'Enrollment failed');
+      setEnrollmentMessage(response.data.message);
+      setShowEnrollForm(false);
+      setBankSecret('');
 
-      if (error.response?.data?.message === 'Please setup your bank account first') {
-        if (window.confirm('You need to setup your bank account first. Setup now?')) {
-          navigate('/bank-setup');
-        }
-      }
+      setTimeout(() => {
+        navigate('/my-courses');
+      }, 3000);
+
+    } catch (err) {
+      console.error('Enrollment error:', err);
+      alert(err.response?.data?.message || 'Enrollment failed');
     } finally {
       setEnrolling(false);
     }
@@ -344,31 +378,24 @@ function CourseDetails() {
               ৳{course.price}
             </div>
 
-            {/* Stats */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-              padding: '1rem',
-              background: 'var(--color-gray-50)',
-              borderRadius: 'var(--radius-md)'
-            }}>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '600', color: 'var(--color-primary)' }}>
-                  {course.enrolledCount || 0}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)' }}>Students</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '600', color: 'var(--color-primary)' }}>
-                  {materials.length}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)' }}>Materials</div>
-              </div>
-            </div>
 
 
+
+            {/* Enrollment Message */}
+            {enrollmentMessage && (
+              <div className="success-notice" style={{ margin: '1rem 0' }}>
+                <span className="success-notice-icon">
+                  <i className="bi bi-check-circle-fill"></i>
+                </span>
+                <div className="success-notice-text">
+                  <strong>{enrollmentMessage}</strong>
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                    <span className="spinner-pending"></span>
+                    Processing enrollment...
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Enroll Button */}
             {isEnrolled ? (
@@ -377,15 +404,33 @@ function CourseDetails() {
                 className="btn btn-success btn-lg"
                 style={{ width: '100%' }}
               >
-                <i className='bi bi-check-circle-fill' style={{ color: '#7D9B6E' }}></i>Go to Course
+                <i className='bi bi-check-circle-fill' style={{ color: '#7D9B6E' }}></i> Go to Course
+              </button>
+            ) : enrollmentPending ? (
+              <button
+                className="btn btn-warning btn-lg"
+                style={{ width: '100%', cursor: 'not-allowed' }}
+                disabled
+              >
+                <i className="bi bi-hourglass-split"></i> Enrollment Pending Approval
               </button>
             ) : user?.role === 'learner' ? (
               <button
                 onClick={handleEnrollClick}
                 className="btn btn-primary btn-lg"
                 style={{ width: '100%' }}
+                disabled={enrolling}
               >
-                Enroll Now
+                {enrolling ? (
+                  <>
+                    <span className="spinner-pending"></span>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-credit-card"></i> Enroll Now
+                  </>
+                )}
               </button>
             ) : (
               <div style={{
@@ -396,17 +441,14 @@ function CourseDetails() {
                 fontSize: '0.9rem'
               }}>
                 {!user ? (
-                  <>
-                    <i className="bi bi-lock-fill"></i> Login as a learner to enroll
-                  </>
+                  <><i className="bi bi-lock-fill"></i> Login as a learner to enroll</>
+                ) : user.role === 'instructor' ? (
+                  <><i className="bi bi-person-badge-fill"></i> Instructors cannot enroll in courses</>
                 ) : (
-                  <>
-                    <i className="bi bi-person-badge-fill"></i> Instructors cannot enroll in courses
-                  </>
+                  <><i className="bi bi-bank"></i> Only learners can enroll in courses</>
                 )}
               </div>
             )}
-
 
             {!user && (
               <button
@@ -417,6 +459,7 @@ function CourseDetails() {
                 Login to Enroll
               </button>
             )}
+
           </div>
         </div>
       </div>

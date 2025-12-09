@@ -43,8 +43,9 @@ function Navbar() {
               {user?.role === 'instructor' && (
                 <>
                   <Link to="/">Home</Link>
-                  <Link to="/courses">Browse Courses</Link>
+                  <Link to="/instructor/create-course">Create Course</Link>
                   <Link to="/my-courses">My Courses</Link>
+                  <Link to="/transactions">Earnings</Link>
                   <Link to="/profile">
                     {user?.username}
                   </Link>

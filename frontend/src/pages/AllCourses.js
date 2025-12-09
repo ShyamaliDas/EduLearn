@@ -10,6 +10,8 @@ function AllCourses() {
   const [filter, setFilter] = useState('all');
   const [enrollments, setEnrollments] = useState([]);
   const user = JSON.parse(localStorage.getItem('user'));
+  const [enrollmentStatus, setEnrollmentStatus] = useState(false);
+
 
   useEffect(() => {
     fetchCourses();
@@ -20,7 +22,9 @@ function AllCourses() {
 
   const fetchCourses = async () => {
     try {
+      console.log('Fetching courses...');
       const response = await axios.get('http://localhost:5000/api/courses');
+      console.log('Courses received:', response.data);
       setCourses(response.data);
       setLoading(false);
     } catch (error) {
@@ -47,12 +51,22 @@ function AllCourses() {
   };
 
   const handleCourseClick = (course) => {
-    if (user?.role === 'learner' && isEnrolled(course.id)) {
-      navigate(`/learner/course/${course.id}`);
+    if (user?.role === 'learner') {
+      // Find the specific enrollment for this course
+      const enrollment = enrollments.find(e => e.courseId === course.id);
+
+      // Only redirect to learner view if enrolled AND validated
+      if (enrollment && enrollment.paymentValidated === true) {
+        navigate(`/learner/course/${course.id}`);
+      } else {
+        // If not enrolled OR pending/rejected, go to course details
+        navigate(`/course/${course.id}`);
+      }
     } else {
       navigate(`/course/${course.id}`);
     }
   };
+
 
   const filteredCourses = filter === 'all'
     ? courses
@@ -132,22 +146,16 @@ function AllCourses() {
                     || 'https://via.placeholder.com/400x200?text=Course+Image'}
                   alt={course.title}
                 />
-                {user?.role === 'learner' && isEnrolled(course.id) && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
-                    background: 'var(--color-success)',
-                    color: 'white',
-                    padding: '0.4rem 0.8rem',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    boxShadow: 'var(--shadow-md)'
-                  }}>
-                    ✓ Enrolled
-                  </div>
-                )}
+
+
+                {/* Only show "Enrolled" badge if payment is VALIDATED */}
+                {user?.role === 'learner' && enrollmentStatus[course.id]?.isEnrolled &&
+                  enrollmentStatus[course.id]?.paymentValidated === true && (
+                    <div className="enrolled-badge">
+                      <i className="bi bi-check-circle-fill"></i> Enrolled
+                    </div>
+                  )}
+
               </div>
 
               <div className="course-card-body">

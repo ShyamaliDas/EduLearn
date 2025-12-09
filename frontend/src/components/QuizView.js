@@ -57,7 +57,7 @@ function QuizView({ material, enrollmentId, onCompleted }) {
             const token = localStorage.getItem('token');
             const percentage = Math.round((correctCount / quiz.length) * 100);
 
-            console.log('💾 Saving quiz score:', {
+            console.log('Saving quiz score:', {
                 enrollmentId,
                 materialId: material.id,
                 score: correctCount,
@@ -142,7 +142,8 @@ function QuizView({ material, enrollmentId, onCompleted }) {
                     marginBottom: '1.5rem'
                 }}>
                     <div style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>
-                        {allCorrect ? '🎉' : '📝'}
+                        {allCorrect ? <i className="bi bi-trophy-fill" style={{ color: '#C9A961' }}></i>
+                            : <i className="bi bi-x-circle-fill" style={{ color: '#B85C5C' }}></i>}
                     </div>
                     <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>
                         {allCorrect ? 'Perfect Score!' : 'Quiz Completed'}

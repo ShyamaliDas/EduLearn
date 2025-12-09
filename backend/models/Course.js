@@ -38,7 +38,20 @@ module.exports = (sequelize) => {
     instructorId: {
       type: DataTypes.INTEGER,
       allowNull: false
-    }
+    },
+    status: {
+      type: DataTypes.ENUM('pending', 'active', 'rejected'),
+      defaultValue: 'pending'
+    },
+    pendingTransactionId: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    bankValidated: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  }
+
   });
 
   Course.associate = (models) => {

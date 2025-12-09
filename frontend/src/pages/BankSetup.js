@@ -12,6 +12,7 @@ function BankSetup() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
 
+
   useEffect(() => {
     checkBankStatus();
   }, []);
@@ -96,7 +97,7 @@ function BankSetup() {
     <div className="container" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="enrollment-card" style={{ maxWidth: '600px', width: '100%' }}>
         <div className="text-center mb-3">
-          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🏦</div>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}><i className="bi bi-bank" style={{ color: '#6B7C5E' }}></i></div>
           <h1 style={{ marginBottom: '0.5rem', color: 'var(--color-primary)' }}>
             Setup Your Bank Account
           </h1>
@@ -115,7 +116,7 @@ function BankSetup() {
               background: 'var(--color-secondary-light)',
               borderRadius: 'var(--radius-md)'
             }}>
-               <i className='bi bi-gift-fill' style={{ color: '#C9A961' }}></i> You will receive ৳10,000 as initial balance!
+               <i className='bi bi-gift-fill' style={{ color: '#C9A961' }}></i> You will receive ৳15,000 as initial balance!
             </p>
           )}
         </div>
@@ -164,16 +165,7 @@ function BankSetup() {
           </div>
         </form>
 
-        <div style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          background: 'var(--color-gray-100)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: '0.85rem',
-          color: 'var(--color-gray-600)'
-        }}>
-          <strong>Note:</strong> You can setup your bank account later from your profile page.
-        </div>
+        
       </div>
     </div>
   );

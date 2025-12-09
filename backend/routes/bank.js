@@ -14,7 +14,7 @@ router.post('/setup', auth, async (req, res) => {
     }
 
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -26,17 +26,16 @@ router.post('/setup', auth, async (req, res) => {
     // Generate account number
     const accountNumber = 'ACC' + Date.now() + Math.floor(Math.random() * 1000);
 
-    // Create account in bank service with initial balance
-    const initialBalance = user.role === 'learner' ? 10000 : 0;
-    
+    // Create account in bank service
     try {
       const bankResponse = await axios.post(
         `${process.env.BANK_SERVICE_URL}/api/bank/create-account`,
         {
           accountNumber,
           ownerName: user.username,
-          initialBalance,
-          secretCode
+          initialBalance: 0,
+          secretCode,
+          role: user.role  
         }
       );
 
@@ -47,13 +46,21 @@ router.post('/setup', auth, async (req, res) => {
         secretCode,
         isSetup: true
       };
+
       await user.save();
 
+      // Get actual balance from bank
+      const balanceResponse = await axios.get(
+        `${process.env.BANK_SERVICE_URL}/api/bank/balance/${accountNumber}`
+      );
+
       res.json({
-        message: 'Bank account set up successfully',
+        message: user.role === 'learner' 
+          ? 'Bank account set up successfully! You received 10,000 TK.'
+          : 'Bank account set up successfully!',
         account: {
           accountNumber,
-          balance: initialBalance
+          balance: balanceResponse.data.balance
         }
       });
     } catch (bankError) {
@@ -74,7 +81,7 @@ router.post('/setup', auth, async (req, res) => {
 router.get('/balance', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user.bankAccount?.isSetup) {
       return res.status(400).json({ message: 'Bank account not set up' });
     }
@@ -94,7 +101,7 @@ router.get('/balance', auth, async (req, res) => {
 router.get('/transactions', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user.bankAccount?.isSetup) {
       return res.status(400).json({ message: 'Bank account not set up' });
     }

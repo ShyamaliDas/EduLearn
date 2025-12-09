@@ -25,6 +25,8 @@ function Login() {
 
       if (response.data.user.role === 'instructor') {
         navigate('/instructor/home');
+      } else if (response.data.user.role === 'bank') {
+      navigate('/bank/dashboard');
       } else {
         navigate('/learner/home');
       }
@@ -95,6 +97,7 @@ function Login() {
             >
               <option value="learner">Learner</option>
               <option value="instructor">Instructor</option>
+              <option value="bank">Bank</option>
             </select>
           </div>
 

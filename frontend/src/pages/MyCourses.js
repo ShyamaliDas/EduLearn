@@ -9,6 +9,8 @@ function MyCourses() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [deleting, setDeleting] = useState(null);
+ 
+
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -21,6 +23,10 @@ function MyCourses() {
 
     setUser(userData);
     fetchMyCourses(userData.role);
+
+    // Poll for status updates every 3 seconds
+    const interval = setInterval(() => fetchMyCourses(userData.role), 2000);
+    return () => clearInterval(interval);
   }, [navigate]);
 
   const fetchMyCourses = async (role) => {
@@ -34,15 +40,24 @@ function MyCourses() {
         });
         setCourses(response.data);
       } else {
+        // Learner - get enrollments
         response = await axios.get('http://localhost:5000/api/enrollments/my-enrollments', {
           headers: { Authorization: `Bearer ${token}` }
         });
+
+        // Filter out rejected enrollments
+        const validEnrollments = response.data.filter(
+          enrollment => enrollment.status !== 'rejected'
+        );
+
         const enrolledCourses = response.data.map(enrollment => ({
           ...enrollment.course,
           enrollmentId: enrollment.id,
-          progress: enrollment.progress,
+          paymentValidated: enrollment.paymentValidated,
+          progress: enrollment.progress || 0,
           completed: enrollment.completed
         }));
+
         setCourses(enrolledCourses);
       }
 
@@ -77,6 +92,35 @@ function MyCourses() {
     }
   };
 
+  const getStatusBadge = (status, paymentValidated) => {
+    // For learner enrollments - check payment validation
+    if (paymentValidated === false) {
+      return (
+        <span className="status-badge status-pending">
+          <i className="bi bi-clock-history"></i> Payment Pending
+        </span>
+      );
+    }
+
+    // For instructor courses - check course status
+    if (!status || status === 'active') return null;
+
+    const badges = {
+      pending: (
+        <span className="status-badge status-pending">
+          <i className="bi bi-clock-history"></i> Pending Validation
+        </span>
+      ),
+      rejected: (
+        <span className="status-badge status-rejected">
+          <i className="bi bi-x-circle"></i> Rejected
+        </span>
+      )
+    };
+
+    return badges[status] || null;
+  };
+
   if (loading) {
     return <div className="loading">Loading courses...</div>;
   }
@@ -87,13 +131,9 @@ function MyCourses() {
 
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-
+      {/* Create Course Button - Only for Instructors */}
       {user.role === 'instructor' && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginBottom: '1rem'
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
           <Link
             to="/instructor/create-course"
             className="btn btn-primary"
@@ -106,38 +146,35 @@ function MyCourses() {
               fontSize: '0.95rem'
             }}
           >
-            <span style={{ fontSize: '1.1rem' }}><i className="bi bi-plus-circle-fill" style={{ color: '#7D9B6E' }}></i></span>
+            <span style={{ fontSize: '1.1rem' }}>
+              <i className="bi bi-plus-circle-fill"></i>
+            </span>
             Create New Course
           </Link>
         </div>
       )}
 
-      {/* Header Section */}
+      {/* Page Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{
-          marginBottom: '0.5rem',
-          color: 'var(--color-primary)',
-          fontSize: '2rem',
-          fontWeight: '700'
-        }}>
-          My Courses
-        </h1>
-        <p style={{ margin: 0, color: 'var(--color-gray-600)', fontSize: '0.95rem' }}>
+        <h1 className="page-title">My Courses</h1>
+        <p className="page-subtitle">
           {user.role === 'instructor'
             ? 'Manage and track your created courses'
             : 'Continue your learning journey'}
         </p>
       </div>
 
-      {/* Courses Grid or Empty State */}
+      {/* Empty State */}
       {courses.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
-            {user.role === 'instructor' ? <i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i> : <i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>}
+            {user.role === 'instructor' ? (
+              <i className="bi bi-book-fill"></i>
+            ) : (
+              <i className="bi bi-mortarboard-fill"></i>
+            )}
           </div>
-          <h2>
-            {user.role === 'instructor' ? 'No Courses Yet' : 'No Enrolled Courses'}
-          </h2>
+          <h2>{user.role === 'instructor' ? 'No Courses Yet' : 'No Enrolled Courses'}</h2>
           <p>
             {user.role === 'instructor'
               ? "You haven't created any courses yet. Start sharing your knowledge!"
@@ -152,133 +189,156 @@ function MyCourses() {
         </div>
       ) : (
         <div className="courses-grid">
-          {courses.map((course) => (
-            <div key={course.id} className="course-card">
-              <div className="course-image">
-                <img
-                  src={course.image ? `http://localhost:5000/uploads/courses/${course.image}` : 'https://via.placeholder.com/400x200?text=No+Image'
-                    || 'https://via.placeholder.com/400x250/8B9D83/FFFFFF?text=Course'}
-                  alt={course.title}
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/400x250/8B9D83/FFFFFF?text=Course';
-                  }}
-                />
-                {course.completed && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
-                    background: 'var(--color-success)',
-                    color: 'white',
-                    padding: '0.4rem 0.8rem',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.85rem',
-                    fontWeight: '600'
-                  }}>
-                    ✓ Completed
-                  </div>
-                )}
-              </div>
+          {courses.map(course => {
+            const isPending = user.role === 'instructor'
+              ? course.status === 'pending'
+              : course.paymentValidated === false;
 
-              <div className="course-card-body">
-                <h3>{course.title}</h3>
-                <p className="course-description">
-                  {course.description?.substring(0, 100)}...
-                </p>
-
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                  <span className="badge badge-level">{course.level}</span>
-                  <span className="badge badge-duration"><i className="bi bi-alarm-fill" style={{ color: '#C9A961' }}></i> {course.duration}</span>
-                </div>
-
-                {/* Progress bar for learners */}
-                {user.role === 'learner' && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: '0.5rem',
-                      fontSize: '0.85rem',
-                      color: 'var(--color-gray-600)'
-                    }}>
-                      <span>Progress</span>
-                      <span>{course.progress || 0}%</span>
-                    </div>
-                    <div style={{
-                      height: '8px',
-                      background: 'var(--color-gray-200)',
-                      borderRadius: 'var(--radius-full)',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${course.progress || 0}%`,
-                        background: 'var(--color-success)',
-                        transition: 'width 0.3s ease'
-                      }} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Stats for instructors */}
-                {user.role === 'instructor' && (
-                  <div style={{
-                    display: 'flex',
-                    gap: '1.5rem',
-                    marginBottom: '1rem',
-                    paddingTop: '0.75rem',
-                    borderTop: '1px solid var(--color-gray-200)'
-                  }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontWeight: '700', color: 'var(--color-primary)', fontSize: '1.2rem' }}>
-                        {course.enrolledCount || 0}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-600)' }}>
-                        Students
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontWeight: '700', color: 'var(--color-primary)', fontSize: '1.2rem' }}>
-                        {course.materialsCount || 0}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-600)' }}>
-                        Materials
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => {
-                      if (user.role === 'instructor') {
-                        navigate(`/instructor/course/${course.id}`);
-                      } else {
-                        navigate(`/learner/course/${course.id}`);
-                      }
+            return (
+              <div
+                key={course.id}
+                className={`course-card ${isPending ? 'course-card-pending' : ''}`}
+              >
+                {/* Course Image */}
+                <div className="course-image">
+                  <img
+                    src={course.image
+                      ? `http://localhost:5000/uploads/courses/${course.image}`
+                      : 'https://via.placeholder.com/400x200?text=No+Image'
+                    }
+                    alt={course.title}
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/400x250/8B9D83/FFFFFF?text=Course';
                     }}
-                    className="btn btn-primary"
-                    style={{ flex: 1 }}
-                  >
-                    {user.role === 'instructor' ? 'Manage' : 'Continue'}
-                  </button>
+                  />
 
-                  {user.role === 'instructor' && (
-                    <button
-                      onClick={() => handleDeleteCourse(course.id, course.title)}
-                      className="btn btn-danger"
-                      disabled={deleting === course.id}
-                      style={{ minWidth: '50px' }}
-                    >
-                      {deleting === course.id ? <i className="bi bi-hourglass-split" style={{ color: '#6B7C5E' }}></i>
-                        : <i className="bi bi-trash-fill" style={{ color: '#6B7C5E' }}></i>}
-                    </button>
+                  {/* Completed Badge - Only for learners */}
+                  {course.completed && (
+                    <div className="course-completed-badge">
+                      <i className="bi bi-check-circle"></i> Completed
+                    </div>
                   )}
                 </div>
+
+                <div className="course-card-body">
+                  {/* Status badge */}
+                  {user.role === 'instructor' && course.status && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      {getStatusBadge(course.status)}
+                    </div>
+                  )}
+
+                  {user.role === 'learner' && course.paymentValidated === false && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      {getStatusBadge(null, false)}
+                    </div>
+                  )}
+
+                  <h3>{course.title}</h3>
+                  <p className="course-description">
+                    {course.description?.substring(0, 100)}...
+                  </p>
+
+                  <div className="course-tags">
+                    <span className="badge badge-level">{course.level}</span>
+                    <span className="badge badge-duration">
+                      <i className="bi bi-alarm-fill"></i> {course.duration}
+                    </span>
+                  </div>
+
+                  {/* Pending notice for instructors */}
+                  {user.role === 'instructor' && course.status === 'pending' && (
+                    <div className="pending-notice">
+                      <span className="pending-notice-icon">
+                        <i className="bi bi-hourglass-split"></i>
+                      </span>
+                      <div className="pending-notice-text">
+                        Waiting for bank validation. You will receive 1,500 TK once approved.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejected notice for instructors */}
+                  {user.role === 'instructor' && course.status === 'rejected' && (
+                    <div className="error-notice">
+                      <span className="error-notice-icon">
+                        <i className="bi bi-exclamation-triangle"></i>
+                      </span>
+                      <div className="error-notice-text">
+                        Course creation failed. Please try again.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending notice for learners */}
+                  {user.role === 'learner' && course.paymentValidated === false && (
+                    <div className="pending-notice">
+                      <span className="pending-notice-icon">
+                        <i className="bi bi-hourglass-split"></i>
+                      </span>
+                      <div className="pending-notice-text">
+                        Enrollment pending bank validation. Please wait for approval...
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progress bar for learners with validated enrollment */}
+                  {user.role === 'learner' && course.paymentValidated === true && (
+                    <div className="course-progress">
+                      <div className="course-progress-header">
+                        <span>Progress</span>
+                        <span>{course.progress || 0}%</span>
+                      </div>
+                      <div className="course-progress-bar">
+                        <div
+                          className="course-progress-fill"
+                          style={{ width: `${course.progress || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  
+
+                  {/* Action buttons */}
+                  <div className="course-actions">
+                    {/* For instructors - only show buttons if active */}
+                    {user.role === 'instructor' && course.status === 'active' && (
+                      <>
+                        <button
+                          onClick={() => navigate(`/instructor/course/${course.id}`)}
+                          className="btn btn-primary"
+                        >
+                          Manage
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCourse(course.id, course.title)}
+                          className="btn btn-danger btn-icon"
+                          disabled={deleting === course.id}
+                        >
+                          {deleting === course.id ? (
+                            <i className="bi bi-hourglass-split"></i>
+                          ) : (
+                            <i className="bi bi-trash-fill"></i>
+                          )}
+                        </button>
+                      </>
+                    )}
+
+                    {/* For learners - only show if payment validated */}
+                    {user.role === 'learner' && course.paymentValidated === true && (
+                      <button
+                        onClick={() => navigate(`/learner/course/${course.id}`)}
+                        className="btn btn-primary btn-block"
+                      >
+                        Continue
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -286,7 +346,3 @@ function MyCourses() {
 }
 
 export default MyCourses;
-
-
-
-

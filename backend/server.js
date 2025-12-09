@@ -14,7 +14,10 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('Static uploads folder configured');
+
 
 console.log('Middleware configured');
 
@@ -32,8 +35,20 @@ const db = require('./models');
 const createDefaultInstructors = async () => {
   try {
     console.log('Creating default instructors...');
-    
+
     const defaultInstructors = [
+
+      {
+        username: 'eCommerceAdmin',
+        email: 'bank@edulearn.com',
+        password: 'bank123',
+        role: 'bank',
+        profile: {
+          name: 'EduLearn E-Commerce',
+          bio: 'E-commerce Organization for EduLearn '
+        }
+      },
+
       {
         username: 'Instructor1',
         email: 'instructor1@edulearn.com',
@@ -70,8 +85,8 @@ const createDefaultInstructors = async () => {
     ];
 
     for (const instructor of defaultInstructors) {
-      const existingUser = await db.User.findOne({ 
-        where: { email: instructor.email } 
+      const existingUser = await db.User.findOne({
+        where: { email: instructor.email }
       });
 
       if (!existingUser) {
@@ -82,21 +97,22 @@ const createDefaultInstructors = async () => {
         });
         console.log(` Created instructor: ${instructor.username}`);
       } else {
-        console.log(`ℹ  Instructor already exists: ${instructor.username}`);
+        console.log(`E-Commerce/Instructor account already exists`);
       }
     }
 
-    console.log(' Default instructors setup complete');
+    console.log(' Default accounts setup complete');
   } catch (error) {
     console.error(' Error creating default instructors:', error);
   }
 };
 
+
 db.sequelize.sync({ alter: true }).then(async () => {
   console.log(' Database synced - All tables recreated');
-  
+
   await createDefaultInstructors();
-  
+
   const authRoutes = require('./routes/auth');
   const courseRoutes = require('./routes/courses');
   const enrollmentRoutes = require('./routes/enrollments');
@@ -109,7 +125,8 @@ db.sequelize.sync({ alter: true }).then(async () => {
   app.use('/api/enrollments', enrollmentRoutes);
   app.use('/api/materials', materialRoutes);
   app.use('/api/bank', bankRoutes);
-  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+  
 
 
   console.log('All routes configured');
@@ -118,8 +135,9 @@ db.sequelize.sync({ alter: true }).then(async () => {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`\n Server running on port ${PORT}`);
-    console.log(` Default instructors available:`);
-    console.log(`   - instructor1@edulearn.com / password123`);
+    console.log(` Default accounts available:`);
+    console.log(`   - bank@edulearn.com / bank123 (Bank Admin)`);
+    console.log('   - instructor1@edulearn.com / password123');
     console.log(`   - instructor2@edulearn.com / password123`);
     console.log(`   - instructor3@edulearn.com / password123`);
   });

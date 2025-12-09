@@ -10,14 +10,14 @@ function CreateCourse() {
     description: '',
     price: '',
     duration: '',
-    level: 'beginner'
+    level: 'beginner',
+    bankSecret: '' 
   });
   const [image, setImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [outlineImage, setOutlineImage] = useState(null);
-
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -31,14 +31,10 @@ function CreateCourse() {
     }
   };
 
-  const handleOutlineImageChange = (e) => {
-    setOutlineImage(e.target.files[0]);
-  };
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     try {
@@ -50,16 +46,13 @@ function CreateCourse() {
       data.append('price', formData.price);
       data.append('duration', formData.duration);
       data.append('level', formData.level);
+      data.append('bankSecret', formData.bankSecret); 
       
       if (image) {
         data.append('image', image);
       }
 
-      if (outlineImage) {
-        data.append('outlineImage', outlineImage);
-      }
-
-      await axios.post(
+      const response = await axios.post(
         'http://localhost:5000/api/courses',
         data,
         {
@@ -70,8 +63,14 @@ function CreateCourse() {
         }
       );
 
-      alert('Course created successfully!');
-      navigate('/my-courses');
+      // Show success message
+      setSuccessMessage(response.data.message);
+      
+      // Redirect after 3 seconds
+      setTimeout(() => {
+        navigate('/my-courses');
+      }, 3000);
+
     } catch (err) {
       console.error('Create course error:', err);
       
@@ -99,6 +98,22 @@ function CreateCourse() {
       </div>
 
       <div className="card" style={{ padding: '2.5rem' }}>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="success-notice" style={{ marginBottom: '1.5rem' }}>
+            <span className="success-notice-icon">
+              <i className="bi bi-check-circle-fill"></i>
+            </span>
+            <div className="success-notice-text">
+              <strong>{successMessage}</strong>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                <span className="spinner-pending"></span>
+                Redirecting to your courses...
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="error-message" style={{ marginBottom: '1.5rem' }}>
             {error}
@@ -193,7 +208,6 @@ function CreateCourse() {
             <small>Upload an attractive image for your course (recommended: 400x200px)</small>
           </div>
 
-          
           {previewUrl && (
             <div style={{ 
               marginTop: '1rem', 
@@ -214,12 +228,43 @@ function CreateCourse() {
             </div>
           )}
 
-          <div style={{ 
-            display: 'flex', 
-            gap: '1rem', 
+          {/* Bank Secret Input */}
+          <div className="form-group" style={{ 
             marginTop: '2rem',
             paddingTop: '1.5rem',
             borderTop: '2px solid var(--color-gray-200)'
+          }}>
+            <label htmlFor="bankSecret">
+              Bank Secret Code *
+              <span style={{ 
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: '400',
+                color: 'var(--color-gray-600)',
+                marginTop: '0.25rem'
+              }}>
+                Enter your bank account secret code to confirm course creation
+              </span>
+            </label>
+            <input
+              type="password"
+              id="bankSecret"
+              name="bankSecret"
+              value={formData.bankSecret}
+              onChange={handleChange}
+              placeholder="Enter your bank secret code"
+              required
+              minLength={6}
+            />
+            <small style={{ color: 'var(--color-warning)' }}>
+              <i className="bi bi-shield-lock"></i> This ensures secure course creation and payment processing
+            </small>
+          </div>
+
+          <div style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            marginTop: '2rem'
           }}>
             <button
               type="button"
@@ -235,14 +280,31 @@ function CreateCourse() {
               style={{ flex: 1 }}
               disabled={loading}
             >
-              {loading ? 'Creating Course...' : 'Create Course'}
+              {loading ? (
+                <>
+                  <span className="spinner-pending"></span>
+                  Creating Course...
+                </>
+              ) : (
+                'Create Course'
+              )}
             </button>
           </div>
         </form>
+
+        {/* Info Box */}
+        <div className="pending-notice" style={{ marginTop: '1.5rem' }}>
+          <span className="pending-notice-icon">
+            <i className="bi bi-info-circle"></i>
+          </span>
+          <div className="pending-notice-text">
+            After creating a course, it will be pending bank validation. 
+            Once approved by the bank, you'll receive 1,500 TK reward automatically.
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export default CreateCourse;
-

@@ -7,8 +7,7 @@ import QuizView from '../components/QuizView';
 import '../App.css';
 
 function LearnerCourseView() {
-  const allParams = useParams();
-  const { id } = allParams;
+  const { id } = useParams();
   const navigate = useNavigate();
   const certificateRef = useRef(null);
 
@@ -22,25 +21,33 @@ function LearnerCourseView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloadingCert, setDownloadingCert] = useState(false);
-
+  const [isExpired, setIsExpired] = useState(false);
   const [accessExpired, setAccessExpired] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState(null);
   const [deadline, setDeadline] = useState(null);
-
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
 
   useEffect(() => {
-    if (!id) {
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    if (!token || !user || user.role !== 'learner') {
+      navigate('/login');
+      return;
+    }
+
+    if (!id || isNaN(id)) {
+      console.error('Invalid course ID:', id);
       setError('Invalid course ID');
       setLoading(false);
       return;
     }
-    fetchCourse();
-    fetchMaterials();
+
     fetchEnrollment();
-    checkCourseAccess();
-  }, [id]);
+    fetchMaterials();
+    fetchCourse();
+  }, [id, navigate]);
 
   const fetchCourse = async () => {
     if (!id) {
@@ -48,6 +55,7 @@ function LearnerCourseView() {
       setLoading(false);
       return;
     }
+
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
@@ -63,6 +71,7 @@ function LearnerCourseView() {
 
   const fetchMaterials = async () => {
     if (!id) return;
+
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
@@ -76,26 +85,45 @@ function LearnerCourseView() {
   };
 
   const fetchEnrollment = async () => {
-    if (!id) {
-      setLoading(false);
-      return;
-    }
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
         `http://localhost:5000/api/enrollments/course/${id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log(' Fresh Enrollment data:', response.data);
-      console.log(' Quiz Scores:', response.data.quizScores);
-      console.log(' Completed:', response.data.completed);
-      console.log(' Progress:', response.data.progress);
+
       setEnrollment(response.data);
       setEnrollmentId(response.data.id);
+
+      // Check if enrollment is still valid
+      const now = new Date();
+      const deadline = new Date(response.data.deadline);
+      const expired = now > deadline;
+      setIsExpired(expired);
+
+
+      await checkCourseAccess();
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching enrollment:', error);
-      setError(error.response?.data?.message || 'Failed to load course enrollment');
+
+      // If enrollment pending validation (403)
+      if (error.response?.status === 403 && error.response?.data?.pending) {
+        console.log('Enrollment pending - redirecting to course details');
+        setTimeout(() => navigate(`/courses/${id}`), 100);
+        return;
+      }
+
+      // If enrollment not found (404) - already deleted/rejected
+      if (error.response?.status === 404) {
+        console.log('Enrollment not found - redirecting to course details page');
+        setTimeout(() => navigate(`/courses/${id}`), 100);
+        return;
+      }
+
+
+      setError('Failed to load course. Please try again.');
       setLoading(false);
     }
   };
@@ -111,7 +139,7 @@ function LearnerCourseView() {
       if (response.data.expired) {
         setAccessExpired(true);
         setDeadline(new Date(response.data.deadline));
-        alert(' Your access to this course has expired. Please re-enroll to continue learning.');
+        alert('Your access to this course has expired. Please re-enroll to continue learning.');
       } else {
         setAccessExpired(false);
         setDaysRemaining(response.data.daysRemaining);
@@ -124,17 +152,22 @@ function LearnerCourseView() {
 
   const areAllQuizzesCompleted = () => {
     const quizMaterials = materials.filter(m => m.type === 'quiz');
-    console.log('🔍 Checking quiz completion:', {
+
+    console.log('Checking quiz completion:', {
       totalQuizzes: quizMaterials.length,
       quizScores: enrollment?.quizScores
     });
 
-    if (quizMaterials.length === 0) return true;
+    if (quizMaterials.length === 0) {
+      return true;
+    }
 
     const allCompleted = quizMaterials.every(quiz => {
       const score = enrollment?.quizScores?.[quiz.id];
       const isComplete = score && score.percentage === 100;
-      console.log(`Quiz ${quiz.title}: ${isComplete ? <i className="bi bi-check-circle-fill" style={{ color: '#7D9B6E' }}></i> : <i className="bi bi-x-circle-fill" style={{ color: '#B85C5C' }}></i>}`, score);
+
+      console.log(`Quiz "${quiz.title}": ${isComplete ? '✓' : '✗'}`, score);
+
       return isComplete;
     });
 
@@ -154,27 +187,25 @@ function LearnerCourseView() {
 
     try {
       const token = localStorage.getItem('token');
-      
-      console.log('🎓 Completing course with enrollmentId:', enrollmentId);
-      
+
+      console.log('Completing course with enrollmentId:', enrollmentId);
+
       const response = await axios.put(
         `http://localhost:5000/api/enrollments/${enrollmentId}/complete`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      console.log(' Course completion response:', response.data);
-      
-      alert(' Congratulations! Course completed successfully!');
-      
+
+      console.log('Course completion response:', response.data);
+
+      alert('Congratulations! Course completed successfully!');
+
       await new Promise(resolve => setTimeout(resolve, 800));
       await fetchEnrollment();
       await new Promise(resolve => setTimeout(resolve, 300));
-      
       setShowCertificate(true);
-      
     } catch (error) {
-      console.error(' Error completing course:', error);
+      console.error('Error completing course:', error);
       console.error('Error response:', error.response?.data);
       alert(error.response?.data?.message || 'Failed to complete course.');
     }
@@ -221,8 +252,7 @@ function LearnerCourseView() {
       text: <i className="bi bi-file-text-fill" style={{ color: '#6B7C5E' }}></i>,
       quiz: <i className="bi bi-question-circle-fill" style={{ color: '#6B7C5E' }}></i>
     };
-    return icons[type] || 
-<i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i>;
+    return icons[type] || <i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i>;
   };
 
   const openQuiz = (quizMaterial) => {
@@ -250,56 +280,65 @@ function LearnerCourseView() {
       case 'video':
         return (
           <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>
-              {selectedMaterial.title}
-            </h3>
-            <video controls style={{ width: '100%', maxHeight: '500px', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}>
-              <source src={`http://localhost:5000${selectedMaterial.content}`} type="video/mp4" />
+            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>{selectedMaterial.title}</h3>
+            <video
+              controls
+              style={{ width: '100%', maxHeight: '500px', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}
+            >
+              <source src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+                type="video/mp4" />
               Your browser does not support the video tag.
             </video>
           </div>
         );
+
       case 'audio':
         return (
           <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>
-              {selectedMaterial.title}
-            </h3>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>{selectedMaterial.title}</h3>
             <audio controls style={{ width: '100%' }}>
-              <source src={`http://localhost:5000${selectedMaterial.content}`} type="audio/mpeg" />
+              <source src={`http://localhost:5000/${selectedMaterial.content.replace(/^\/+/, '/')}`} type="audio/mpeg" />
               Your browser does not support the audio element.
             </audio>
           </div>
         );
+
       case 'image':
         return (
           <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>
-              {selectedMaterial.title}
-            </h3>
-            <img src={`http://localhost:5000${selectedMaterial.content}`} alt={selectedMaterial.title} style={{ width: '100%', maxHeight: '600px', objectFit: 'contain', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }} />
+            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>{selectedMaterial.title}</h3>
+            <img
+              src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+
+              alt={selectedMaterial.title}
+              style={{ width: '100%', maxHeight: '600px', objectFit: 'contain', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}
+            />
           </div>
         );
+
       case 'slide':
         return (
           <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>
-              {selectedMaterial.title}
-            </h3>
-            <iframe src={`http://localhost:5000${selectedMaterial.content}`} title={selectedMaterial.title} style={{ width: '100%', minHeight: '600px', border: 'none', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }} />
+            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>{selectedMaterial.title}</h3>
+            <iframe
+              src={`http://localhost:5000${selectedMaterial.content.replace(/^\/+/, '/')}`}
+
+              title={selectedMaterial.title}
+              style={{ width: '100%', minHeight: '600px', border: 'none', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)' }}
+            />
           </div>
         );
+
       case 'text':
         return (
           <div style={{ padding: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>
-              {selectedMaterial.title}
-            </h3>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>{selectedMaterial.title}</h3>
             <div style={{ color: 'var(--color-gray-800)', lineHeight: '1.8', whiteSpace: 'pre-wrap', fontSize: '1rem' }}>
               {selectedMaterial.content}
             </div>
           </div>
         );
+
       default:
         return <p>Unsupported material type</p>;
     }
@@ -309,26 +348,19 @@ function LearnerCourseView() {
     return <div className="loading">Loading course...</div>;
   }
 
-  if (error) {
+  if (error || !enrollment || !course) {
     return (
       <div className="container" style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="empty-state">
-          <div className="empty-icon"><i className="bi bi-x-circle-fill" style={{ color: '#B85C5C' }}></i></div>
+          <div className="empty-icon" style={{ fontSize: '4rem', color: '#dc3545' }}>
+            <i className="bi bi-exclamation-triangle-fill"></i>
+          </div>
           <h2>Unable to load course</h2>
-          <p>{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!course) {
-    return (
-      <div className="container" style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="empty-state">
-          <div className="empty-icon"><i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i></div>
-          <h2>Course Not Found</h2>
-          <p>The course you're looking for doesn't exist.</p>
-          <button onClick={() => navigate('/my-courses')} className="btn btn-primary">
+          <p>{error || 'Course not found'}</p>
+          <button
+            onClick={() => navigate('/my-courses')}
+            className="btn btn-primary"
+          >
             Back to My Courses
           </button>
         </div>
@@ -344,9 +376,7 @@ function LearnerCourseView() {
       {/* Header */}
       <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ marginBottom: '0.5rem', color: 'var(--color-primary)' }}>
-            {course.title}
-          </h1>
+          <h1 style={{ marginBottom: '0.5rem', color: 'var(--color-primary)' }}>{course.title}</h1>
           <p style={{ margin: 0, color: 'var(--color-gray-600)' }}>
             By {course.instructor?.profile?.name || course.instructor?.username}
           </p>
@@ -357,15 +387,16 @@ function LearnerCourseView() {
             <span>{progress}%</span>
           </div>
           <div style={{ height: '8px', background: 'var(--color-gray-200)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress}%`, background: 'var(--color-success)', transition: 'width 0.3s ease' }} />
+            <div style={{ height: '100%', width: `${progress}%`, background: 'var(--color-success)', transition: 'width 0.3s ease' }}></div>
           </div>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem' }}>
+        {/* Sidebar */}
         <div className="card" style={{ padding: '1.5rem', maxHeight: '75vh', overflowY: 'auto' }}>
           <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Course Content</h3>
-          
+
           {accessExpired && (
             <div className="deadline-warning-sidebar">
               <div className="deadline-icon"><i className="bi bi-lock-fill" style={{ color: '#6B7C5E' }}></i></div>
@@ -380,8 +411,20 @@ function LearnerCourseView() {
               materials.map((material, index) => {
                 const isQuiz = material.type === 'quiz';
                 const quizScore = enrollment?.quizScores?.[material.id];
+
                 return (
-                  <div key={material.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--color-gray-50)', opacity: accessExpired ? 0.5 : 1 }}>
+                  <div
+                    key={material.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--color-gray-50)',
+                      opacity: accessExpired ? 0.5 : 1
+                    }}
+                  >
                     <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-full)', background: 'var(--color-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-gray-200)' }}>
                       {getMaterialIcon(material.type)}
                     </div>
@@ -390,16 +433,25 @@ function LearnerCourseView() {
                         {index + 1}. {material.title}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
-                        {material.type.toUpperCase()}
-                        {isQuiz && quizScore && ` • Score: ${quizScore.percentage}%`}
+                        {material.type.toUpperCase()} {isQuiz && quizScore && `• Score: ${quizScore.percentage}%`}
                       </div>
                     </div>
                     {isQuiz ? (
-                      <button type="button" onClick={() => openQuiz(material)} className="btn btn-outline btn-sm" disabled={accessExpired}>
+                      <button
+                        type="button"
+                        onClick={() => openQuiz(material)}
+                        className="btn btn-outline btn-sm"
+                        disabled={accessExpired}
+                      >
                         Take Quiz
                       </button>
                     ) : (
-                      <button type="button" onClick={() => openMaterial(material)} className="btn btn-primary btn-sm" disabled={accessExpired}>
+                      <button
+                        type="button"
+                        onClick={() => openMaterial(material)}
+                        className="btn btn-primary btn-sm"
+                        disabled={accessExpired}
+                      >
                         Open
                       </button>
                     )}
@@ -408,15 +460,9 @@ function LearnerCourseView() {
               })
             )}
           </div>
-
-          {!enrollment?.completed && !accessExpired && (
-            <button onClick={handleCompleteCourse} className="btn btn-success" style={{ width: '100%', marginTop: '1.5rem' }} disabled={!canComplete}>
-              {canComplete ? 'Mark Course as Complete ✓' : 'Complete All Quizzes (100% Required)'}
-            </button>
-          )}
         </div>
 
-        {/* Main Content Area */}
+        {/* Main Content */}
         <div>
           {/* Course Overview */}
           <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
@@ -430,22 +476,32 @@ function LearnerCourseView() {
 
           {/* Deadline Card */}
           {enrollment && !enrollment.completed && deadline && (
-            <div className={`deadline-card ${accessExpired ? 'expired' : daysRemaining <= 7 ? 'warning' : 'active'}`}>
+            <div className={`deadline-card ${accessExpired ? 'expired' : daysRemaining && daysRemaining <= 7 ? 'warning' : 'active'}`}>
               <div className="deadline-card-icon">
-                {accessExpired ? '⏰' : daysRemaining <= 7 ? <i className="bi bi-exclamation-triangle-fill" style={{ color: '#C9A961' }}></i> : <i className="bi bi-check-circle-fill" style={{ color: '#7D9B6E' }}></i>
-}
+                {accessExpired ? (
+                  <i className="bi bi-lock-fill"></i>
+                ) : daysRemaining && daysRemaining <= 7 ? (
+                  <i className="bi bi-exclamation-triangle-fill" style={{ color: '#C9A961' }}></i>
+                ) : (
+                  <i className="bi bi-check-circle-fill" style={{ color: '#7D9B6E' }}></i>
+                )}
               </div>
               <div className="deadline-card-content">
                 <h3 className="deadline-card-title">
-                  {accessExpired ? 'Access Expired' : daysRemaining <= 7 ? 'Access Expiring Soon!' : 'Course Access Active'}
+                  {accessExpired ? 'Access Expired' : daysRemaining && daysRemaining <= 7 ? 'Access Expiring Soon!' : 'Course Access Active'}
                 </h3>
                 <p className="deadline-card-text">
-                  {accessExpired 
-                    ? `Your access expired on ${deadline.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}` 
-                    : `${daysRemaining} days remaining until ${deadline.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+                  {accessExpired
+                    ? `Your access expired on ${deadline.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                    : `${daysRemaining} days remaining until ${deadline.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                  }
                 </p>
                 {accessExpired && (
-                  <button onClick={() => navigate(`/course/${id}`)} className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
+                  <button
+                    onClick={() => navigate(`/courses/${id}`)}
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: '0.75rem' }}
+                  >
                     Re-Enroll Now
                   </button>
                 )}
@@ -461,61 +517,73 @@ function LearnerCourseView() {
               <p className="access-expired-text">
                 Your access to this course has ended. Re-enroll to continue your learning journey!
               </p>
-              <button onClick={() => navigate(`/course/${id}`)} className="btn btn-primary btn-lg">
+              <button
+                onClick={() => navigate(`/courses/${id}`)}
+                className="btn btn-primary btn-lg"
+              >
                 Re-Enroll in Course
               </button>
             </div>
-          ) : (
-            enrollment?.completed && (
-              <>
-                <div ref={certificateRef} className="card certificate-card">
-                  <div className="certificate-corner certificate-corner-tl" />
-                  <div className="certificate-corner certificate-corner-tr" />
-                  <div className="certificate-corner certificate-corner-bl" />
-                  <div className="certificate-corner certificate-corner-br" />
+          ) : enrollment?.completed ? (
+            <div ref={certificateRef} className="card certificate-card">
+              <div className="certificate-corner certificate-corner-tl"></div>
+              <div className="certificate-corner certificate-corner-tr"></div>
+              <div className="certificate-corner certificate-corner-bl"></div>
+              <div className="certificate-corner certificate-corner-br"></div>
 
-                  <div className="certificate-icon"><i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
-                  <h2 className="certificate-title">CERTIFICATE OF COMPLETION</h2>
-                  <p className="certificate-label">This is to certify that</p>
-                  <h3 className="certificate-name">
-                    {enrollment.learner?.profile?.name || enrollment.learner?.username}
-                  </h3>
-                  <p className="certificate-label">has successfully completed</p>
-                  <h3 className="certificate-course-name">{course.title}</h3>
-                  <p className="certificate-instructor">
-                    Instructed by {course.instructor?.profile?.name || course.instructor?.username}
-                  </p>
-                  
-                  <div className="certificate-footer">
-                    <div>
-                      <div className="certificate-footer-label">Date</div>
-                      <div className="certificate-footer-value">
-                        {new Date(enrollment.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="certificate-footer-label">Level</div>
-                      <div className="certificate-footer-value">{course.level}</div>
-                    </div>
-                    <div>
-                      <div className="certificate-footer-label">Duration</div>
-                      <div className="certificate-footer-value">{course.duration}</div>
-                    </div>
+              <div className="certificate-icon"><i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
+              <h2 className="certificate-title">CERTIFICATE OF COMPLETION</h2>
+              <p className="certificate-label">This is to certify that</p>
+              <h3 className="certificate-name">{enrollment.learner?.profile?.name || enrollment.learner?.username}</h3>
+              <p className="certificate-label">has successfully completed</p>
+              <h3 className="certificate-course-name">{course.title}</h3>
+
+              <p className="certificate-instructor">Instructed by {course.instructor?.profile?.name || course.instructor?.username}</p>
+
+              <div className="certificate-footer">
+                <div>
+                  <div className="certificate-footer-label">Date</div>
+                  <div className="certificate-footer-value">
+                    {new Date(enrollment.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </div>
-
-                  <div className="certificate-brand">EduLearn - Bridge to a Thriving Career</div>
                 </div>
+                <div>
+                  <div className="certificate-footer-label">Level</div>
+                  <div className="certificate-footer-value">{course.level}</div>
+                </div>
+                <div>
+                  <div className="certificate-footer-label">Duration</div>
+                  <div className="certificate-footer-value">{course.duration}</div>
+                </div>
+              </div>
 
-                <button onClick={downloadCertificate} className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: '1rem' }} disabled={downloadingCert}>
-                  {downloadingCert ? (
-                    <><i className="bi bi-hourglass-split" style={{ color: '#6B7C5E' }}></i> Generating PDF...</>
-                  ) : (
-                    <><i className="bi bi-download" style={{ color: '#e1ebdaff' }}></i> Download Certificate</>
-                  )}
+              <div className="certificate-brand">EduLearn - Bridge to a Thriving Career</div>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Complete Course</h3>
+              <p style={{ marginBottom: '1.5rem', color: 'var(--color-gray-600)' }}>
+                {canComplete
+                  ? 'Congratulations! You have completed all required quizzes. Click below to complete the course and get your certificate.'
+                  : 'Complete all quizzes with 100% score to finish this course.'}
+              </p>
 
-                </button>
-              </>
-            )
+            </div>
+          )}
+
+          {enrollment?.completed && (
+            <button
+              onClick={downloadCertificate}
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', marginTop: '1rem' }}
+              disabled={downloadingCert}
+            >
+              {downloadingCert ? (
+                <><i className="bi bi-hourglass-split" style={{ color: '#6B7C5E' }}></i> Generating PDF...</>
+              ) : (
+                <><i className="bi bi-download" style={{ color: '#e1ebda' }}></i> Download Certificate</>
+              )}
+            </button>
           )}
         </div>
       </div>
@@ -526,10 +594,20 @@ function LearnerCourseView() {
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedQuiz.title}</h2>
-              <button className="modal-close" onClick={() => setShowQuizModal(false)}><i className="bi bi-x-lg" style={{ color: '#6B7C5E' }}></i>
-</button>
+              <button className="modal-close" onClick={() => setShowQuizModal(false)}>
+                <i className="bi bi-x-lg" style={{ color: '#6B7C5E' }}></i>
+              </button>
             </div>
-            <QuizView material={selectedQuiz} enrollmentId={enrollmentId} onCompleted={() => { fetchEnrollment(); }} onClose={() => { setShowQuizModal(false); setSelectedQuiz(null); fetchEnrollment(); }} />
+            <QuizView
+              material={selectedQuiz}
+              enrollmentId={enrollmentId}
+              onCompleted={fetchEnrollment}
+              onClose={() => {
+                setShowQuizModal(false);
+                setSelectedQuiz(null);
+                fetchEnrollment();
+              }}
+            />
           </div>
         </div>
       )}
@@ -540,8 +618,9 @@ function LearnerCourseView() {
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedMaterial.title}</h2>
-              <button className="modal-close" onClick={() => setShowMaterialModal(false)}><i className="bi bi-x-lg" style={{ color: '#6B7C5E' }}></i>
-</button>
+              <button className="modal-close" onClick={() => setShowMaterialModal(false)}>
+                <i className="bi bi-x-lg" style={{ color: '#6B7C5E' }}></i>
+              </button>
             </div>
             {renderMaterial()}
           </div>
@@ -552,4 +631,3 @@ function LearnerCourseView() {
 }
 
 export default LearnerCourseView;
-

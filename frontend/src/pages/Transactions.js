@@ -30,7 +30,12 @@ function Transactions() {
       const response = await axios.get('http://localhost:5000/api/bank/transactions', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setTransactions(response.data);
+
+      const approvedTransactions = response.data.filter(
+        transaction => transaction.status === 'approved'
+      );
+
+      setTransactions(approvedTransactions);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -53,11 +58,13 @@ function Transactions() {
   const getTransactionType = (transaction) => {
     const userAccount = user?.bankAccount?.accountNumber;
 
-    if (transaction.fromAccount === 'SYSTEM') {
+    if (transaction.fromAccount === 'LMS_ORG_ACCOUNT' && transaction.toAccount === userAccount) {
       return 'credit';
-    } else if (transaction.fromAccount === userAccount) {
+    }
+     else if (transaction.fromAccount === userAccount) {
       return 'debit';
-    } else if (transaction.toAccount === userAccount) {
+    }
+     else if (transaction.toAccount === userAccount) {
       return 'credit';
     }
     return 'unknown';

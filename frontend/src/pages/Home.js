@@ -43,49 +43,49 @@ function Home() {
 
 
   const fetchInstructorStats = async () => {
-  try {
-    const token = localStorage.getItem('token');
-
-    // Fetch instructor's courses
-    const coursesResponse = await axios.get(
-      'http://localhost:5000/api/courses/instructor/my-courses',
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    const courses = coursesResponse.data;
-
-    // Calculate stats from courses
-    const totalCourses = courses.length;
-    const totalStudents = courses.reduce((sum, course) => sum + (course.enrolledCount || 0), 0);
-
-    //  Fetch REAL bank balance instead of calculating
-    let totalEarnings = 0;
     try {
-      const bankResponse = await axios.get(
-        'http://localhost:5000/api/bank/balance',
+      const token = localStorage.getItem('token');
+
+      // Fetch instructor's courses
+      const coursesResponse = await axios.get(
+        'http://localhost:5000/api/courses/instructor/my-courses',
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      totalEarnings = bankResponse.data.balance || 0;
-    } catch (bankError) {
-      console.error('Error fetching bank balance:', bankError);
-      totalEarnings = 0;
-    }
 
-    setInstructorStats({
-      totalCourses,
-      totalStudents,
-      totalEarnings
-    });
-  } catch (error) {
-    console.error('Error fetching instructor stats:', error);
-    // Set default values on error
-    setInstructorStats({
-      totalCourses: 0,
-      totalStudents: 0,
-      totalEarnings: 0
-    });
-  }
-};
+      const courses = coursesResponse.data;
+
+      // Calculate stats from courses
+      const totalCourses = courses.length;
+      const totalStudents = courses.reduce((sum, course) => sum + (course.enrolledCount || 0), 0);
+
+      //  Fetch REAL bank balance instead of calculating
+      let totalEarnings = 0;
+      try {
+        const bankResponse = await axios.get(
+          'http://localhost:5000/api/bank/balance',
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        totalEarnings = bankResponse.data.balance || 0;
+      } catch (bankError) {
+        console.error('Error fetching bank balance:', bankError);
+        totalEarnings = 0;
+      }
+
+      setInstructorStats({
+        totalCourses,
+        totalStudents,
+        totalEarnings
+      });
+    } catch (error) {
+      console.error('Error fetching instructor stats:', error);
+      // Set default values on error
+      setInstructorStats({
+        totalCourses: 0,
+        totalStudents: 0,
+        totalEarnings: 0
+      });
+    }
+  };
 
 
 
@@ -140,7 +140,7 @@ function Home() {
           </div>
           <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E' }}></i>
-</div>
+            </div>
             <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
               {stats.totalStudents}
             </h3>
@@ -166,12 +166,12 @@ function Home() {
             gap: '1.5rem'
           }}>
             {[
-              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
-              { icon: <i className="bi bi-phone-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
-              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
-              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
-              { icon: <i className="bi bi-credit-card-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
-              { icon: <i className="bi bi-globe" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
+              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
+              { icon: <i className="bi bi-book" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
+              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
+              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
+              { icon: <i className="bi bi-credit-card-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
+              { icon: <i className="bi bi-globe" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
             ].map((feature, idx) => (
               <div key={idx} className="card" style={{ textAlign: 'center', padding: '1.5rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{feature.icon}</div>
@@ -212,6 +212,8 @@ function Home() {
           </p>
         </div>
 
+
+
         {/* Quick Actions */}
         <div style={{
           display: 'grid',
@@ -219,13 +221,16 @@ function Home() {
           gap: '1rem',
           marginBottom: '3rem'
         }}>
+
+
+          
           <Link to="/courses" className="card" style={{
             textDecoration: 'none',
             padding: '1.5rem',
             textAlign: 'center',
             cursor: 'pointer'
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-search" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-search" style={{ color: '#9b976eff', fontSize: '3rem' }}></i></div>
             <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Discover</h4>
             <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
               Explore new courses
@@ -237,7 +242,7 @@ function Home() {
             textAlign: 'center',
             cursor: 'pointer'
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i></div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#9b976eff' }}></i></div>
             <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>My Courses</h4>
             <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
               Continue learning
@@ -249,7 +254,7 @@ function Home() {
             textAlign: 'center',
             cursor: 'pointer'
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#9b976eff', fontSize: '3rem' }}></i></div>
             <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Profile</h4>
             <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
               Manage account
@@ -268,12 +273,12 @@ function Home() {
             gap: '1.5rem'
           }}>
             {[
-              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
-              { icon: <i className="bi bi-phone-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
-              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
-              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
-              { icon: <i className="bi bi-credit-card-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
-              { icon: <i className="bi bi-globe" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
+              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
+              { icon: <i className="bi bi-book" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
+              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
+              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
+              { icon: <i className="bi bi-credit-card-fill" style={{ color: '##6a9348a6', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
+              { icon: <i className="bi bi-globe" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
             ].map((feature, idx) => (
               <div key={idx} className="card" style={{ textAlign: 'center', padding: '1.5rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{feature.icon}</div>
@@ -371,16 +376,97 @@ function Home() {
           boxShadow: 'var(--shadow-lg)'
         }}>
           <h1 style={{ color: 'white', marginBottom: '0.5rem' }}>
-            Welcome, {user.username}! <i className="bi bi-person-badge-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>
+            Welcome, {user.username}! <i className="bi bi-person-badge-fill" style={{ color: '#aaa958ff', fontSize: '3rem' }}></i>
           </h1>
           <p style={{ color: 'var(--color-secondary-light)', fontSize: '1.1rem', margin: 0 }}>
             Manage your courses and inspire students
           </p>
         </div>
 
+
+
+
+        {/* Quick Actions */}
+
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#755d0eff' }}>
+            Quick Actions
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem'
+          }}>
+            <Link to="/instructor/create-course" className="card" style={{ textDecoration: 'none', padding: '1.5rem', textAlign: 'center', cursor: 'pointer' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-plus-circle-fill" style={{ color: '#9b976eff' }}></i></div>
+              <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Create Course</h4>
+              <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
+                Build a new course
+              </p>
+            </Link>
+
+            <Link to="/transactions" className="card" style={{
+              textDecoration: 'none',
+              padding: '1.5rem',
+              textAlign: 'center',
+              cursor: 'pointer'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-credit-card-fill" style={{ color: '#9b976eff', fontSize: '3rem' }}></i></div>
+              <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Earnings</h4>
+              <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
+                View earnings
+              </p>
+            </Link>
+            <Link to="/profile" className="card" style={{
+              textDecoration: 'none',
+              padding: '1.5rem',
+              textAlign: 'center',
+              cursor: 'pointer'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#9b976eff', fontSize: '3rem' }}></i></div>
+              <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Profile</h4>
+              <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
+                Update profile
+              </p>
+            </Link>
+
+            <Link to="/my-courses" className="card" style={{
+              textDecoration: 'none',
+              padding: '1.5rem',
+              textAlign: 'center',
+              cursor: 'pointer'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book" style={{ color: '#9b976eff' }}></i></div>
+              <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>My Courses</h4>
+              <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
+                Manage your courses
+              </p>
+            </Link>
+
+            <Link to="/courses" className="card" style={{
+              textDecoration: 'none',
+              padding: '1.5rem',
+              textAlign: 'center',
+              cursor: 'pointer'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#9b976eff', fontSize: '3rem' }}></i></div>
+              <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Courses</h4>
+              <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
+                Browse All Courses
+              </p>
+            </Link>
+          </div>
+        </div>
+
+
+
+
+
+
+
         {/* Features Section */}
         <div style={{ marginBottom: '3rem' }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--color-primary)' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#325e0ba6' }}>
             Why Choose EduLearn?
           </h2>
           <div style={{
@@ -389,12 +475,12 @@ function Home() {
             gap: '1.5rem'
           }}>
             {[
-              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
-              { icon: <i className="bi bi-phone-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
-              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
-              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
-              { icon: <i className="bi bi-credit-card-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
-              { icon: <i className="bi bi-globe" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
+              { icon: <i className="bi bi-person-badge-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Expert Instructors', desc: 'Learn from industry professionals and certified educators' },
+              { icon: <i className="bi bi-book" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Rich Content', desc: 'Access videos, slides, audio lectures, and interactive quizzes' },
+              { icon: <i className="bi bi-bar-chart-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Track Progress', desc: 'Monitor your learning journey with detailed progress tracking' },
+              { icon: <i className="bi bi-mortarboard-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Certificates', desc: 'Earn certificates upon course completion' },
+              { icon: <i className="bi bi-credit-card-fill" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Secure Payments', desc: 'Integrated banking system for safe transactions' },
+              { icon: <i className="bi bi-globe" style={{ color: '#6a9348a6', fontSize: '3rem' }}></i>, title: 'Learn Anywhere', desc: 'Access courses on any device, anytime' }
             ].map((feature, idx) => (
               <div key={idx} className="card" style={{ textAlign: 'center', padding: '1.5rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{feature.icon}</div>
@@ -411,97 +497,41 @@ function Home() {
 
         {/* Instructor Stats */}
         <div style={{ marginBottom: '3rem' }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--color-primary)' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#8a8829ff' }}>
             Your Statistics
           </h2><div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1.5rem'
-        }}>
-          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i></div>
-            <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-              {instructorStats.totalCourses}
-            </h3>
-            <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Your Courses</p>
-          </div>
-          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
-            <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-              {instructorStats.totalStudents}
-            </h3>
-            <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Total Students</p>
-          </div>
-          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-cash-coin" style={{ color: '#6B7C5E' }}></i>
-</div>
-            <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-              ৳{instructorStats.totalEarnings}
-            </h3>
-            <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Total Earnings</p>
-          </div></div>
-        </div>
-
-
-
-
-        {/* Quick Actions */}
-
-        <div style={{ marginBottom: '3rem' }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--color-primary)' }}>
-          Quick Actions
-          </h2>
-          <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem'
+            gap: '1.5rem'
           }}>
-          <Link to="/instructor/create-course" className="card" style={{ textDecoration: 'none', padding: '1.5rem', textAlign: 'center', cursor: 'pointer' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-plus-circle-fill" style={{ color: '#7D9B6E' }}></i></div>
-            <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Create Course</h4>
-            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
-              Build a new course
-            </p>
-          </Link>
-
-          <Link to="/my-courses" className="card" style={{
-            textDecoration: 'none',
-            padding: '1.5rem',
-            textAlign: 'center',
-            cursor: 'pointer'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#6B7C5E' }}></i></div>
-            <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>My Courses</h4>
-            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
-              Manage your courses
-            </p>
-          </Link>
-          <Link to="/transactions" className="card" style={{
-            textDecoration: 'none',
-            padding: '1.5rem',
-            textAlign: 'center',
-            cursor: 'pointer'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-credit-card-fill" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
-            <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Earnings</h4>
-            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
-              View earnings
-            </p>
-          </Link>
-          <Link to="/profile" className="card" style={{
-            textDecoration: 'none',
-            padding: '1.5rem',
-            textAlign: 'center',
-            cursor: 'pointer'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#6B7C5E', fontSize: '3rem' }}></i></div>
-            <h4 style={{ color: 'var(--color-gray-900)', marginBottom: '0.25rem' }}>Profile</h4>
-            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.85rem', margin: 0 }}>
-              Update profile
-            </p>
-          </Link>
-          </div>
+            <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-book-fill" style={{ color: '#aaa958ff' }}></i></div>
+              <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                {instructorStats.totalCourses}
+              </h3>
+              <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Your Courses</p>
+            </div>
+            <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-person-circle" style={{ color: '#aaa958ff', fontSize: '3rem' }}></i></div>
+              <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                {instructorStats.totalStudents}
+              </h3>
+              <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Total Students</p>
+            </div>
+            <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}><i className="bi bi-cash-coin" style={{ color: '#aaa958ff' }}></i>
+              </div>
+              <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                ৳{instructorStats.totalEarnings}
+              </h3>
+              <p style={{ color: 'var(--color-gray-600)', margin: 0 }}>Total Earnings</p>
+            </div></div>
         </div>
+
+
+
+
+
       </div>
     );
   }

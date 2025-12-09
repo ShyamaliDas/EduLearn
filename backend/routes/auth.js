@@ -204,4 +204,26 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
+
+router.get('/all-users', auth, async (req, res) => {
+  try {
+    // Check if user is bank admin
+    if (req.user.role !== 'bank') {
+      return res.status(403).json({ message: 'Access denied. Bank admin only.' });
+    }
+
+    // Fetch all users with their bank account info
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email', 'role', 'bankAccount', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 module.exports = router;

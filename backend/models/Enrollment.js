@@ -5,55 +5,54 @@ module.exports = (sequelize) => {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
-      autoIncrement: true
+      autoIncrement: true,
     },
     learnerId: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
     },
     courseId: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
     },
     progress: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       validate: {
         min: 0,
-        max: 100
-      }
+        max: 100,
+      },
     },
     completed: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false
+      defaultValue: false,
     },
     completedAt: {
       type: DataTypes.DATE,
-      allowNull: true
+      allowNull: true,
     },
     transactionId: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
+    },
+    paymentValidated: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,  
+      allowNull: false,     
     },
     quizScores: {
       type: DataTypes.JSON,
-      defaultValue: {}
+      defaultValue: {},
     },
     deadline: {
       type: DataTypes.DATE,
-      allowNull: true
-    }
+      allowNull: true,
+    },
   });
 
   Enrollment.associate = (models) => {
-    Enrollment.belongsTo(models.User, {
-      foreignKey: 'learnerId',
-      as: 'learner'
-    });
-    Enrollment.belongsTo(models.Course, {
-      foreignKey: 'courseId',
-      as: 'course'
-    });
+    Enrollment.belongsTo(models.User, { foreignKey: 'learnerId', as: 'learner' });
+    Enrollment.belongsTo(models.Course, { foreignKey: 'courseId', as: 'course' });
   };
 
   return Enrollment;

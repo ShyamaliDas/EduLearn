@@ -23,8 +23,17 @@ const Transaction = sequelize.define('Transaction', {
     type: DataTypes.STRING
   },
   status: {
-    type: DataTypes.ENUM('pending', 'completed', 'failed'),
-    defaultValue: 'completed'
+    type: DataTypes.ENUM('pending', 'validated', 'approved', 'rejected', 'failed'),
+    defaultValue: 'pending'
+  },
+  transactionType: {
+    type: DataTypes.ENUM('course_creation_reward', 'course_enrollment', 'instructor_payment', 'bank_commission'),
+    allowNull: true
+  },
+  relatedId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'courseId or enrollmentId'
   }
 }, {
   tableName: 'transactions',

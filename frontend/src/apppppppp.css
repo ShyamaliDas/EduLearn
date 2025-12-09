@@ -1029,6 +1029,106 @@ a:focus-visible {
 
 
 
+/* ============================================
+   DEADLINE & ACCESS EXPIRED STYLES
+   ============================================ */
+
+.deadline-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid;
+}
+
+.deadline-card.active {
+  background: linear-gradient(135deg, #f0f9f4 0%, #d1fae5 100%);
+  border-color: var(--color-success);
+}
+
+.deadline-card.warning {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: var(--color-warning);
+}
+
+.deadline-card.expired {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: var(--color-danger);
+}
+
+.deadline-card-icon {
+  font-size: 2.5rem;
+}
+
+.deadline-card-content {
+  flex: 1;
+}
+
+.deadline-card-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.deadline-card.active .deadline-card-title {
+  color: var(--color-success);
+}
+
+.deadline-card.warning .deadline-card-title {
+  color: #92400e;
+}
+
+.deadline-card.expired .deadline-card-title {
+  color: var(--color-danger);
+}
+
+.deadline-card-text {
+  margin: 0;
+  color: var(--color-gray-700);
+  font-size: 0.95rem;
+}
+
+.deadline-warning-sidebar {
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.deadline-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.deadline-text {
+  font-weight: 600;
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+.access-expired-card {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.access-expired-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.access-expired-title {
+  color: var(--color-danger);
+  margin-bottom: 1rem;
+}
+
+.access-expired-text {
+  color: var(--color-gray-700);
+  margin-bottom: 2rem;
+}
 
 
 /* ========================================
@@ -1817,7 +1917,37 @@ a:focus-visible {
   width: 100%;
 }
 
+/* Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
 
+
+
+.status-badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.status-badge-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.status-badge-failed {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
 
 @keyframes pulse-subtle {
   0%, 100% {
