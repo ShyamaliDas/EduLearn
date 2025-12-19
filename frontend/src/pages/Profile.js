@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../App.css';
+import BankSetup from './BankSetup';
 
 function Profile() {
   const navigate = useNavigate();
@@ -9,6 +10,8 @@ function Profile() {
   const [bankStatus, setBankStatus] = useState(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showBankSetup, setShowBankSetup] = useState(false);
+  const [bankForm, setBankForm] = useState({ secretCode: '' });
   const [profileForm, setProfileForm] = useState({
     name: '',
     email: '',
@@ -26,6 +29,8 @@ function Profile() {
     bio: '',
     qualification: ''
   });
+
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
@@ -69,7 +74,10 @@ function Profile() {
 
       await axios.put(
         'http://localhost:5000/api/auth/profile',
-        { profile: { ...profileForm, profilePicture: profilePictureUrl } },
+        {
+          email: profileForm.email,
+          profile: { ...profileForm, profilePicture: profilePictureUrl }
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -125,6 +133,25 @@ function Profile() {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+
+  const handleBankSetup = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/bank/setup',
+        { secretCode: bankForm.secretCode },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert(response.data.message);
+      setShowBankSetup(false);
+      setBankForm({ secretCode: '' });
+      fetchBankStatus();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to setup bank account');
     }
   };
 
@@ -323,7 +350,7 @@ function Profile() {
 
 
           <div>
-            {bankStatus ? (
+            {bankStatus?.isSetup ? (
               <div style={{ padding: '1.5rem', background: 'var(--color-secondary-light)', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', marginBottom: '0.25rem' }}>Account Number</div>
@@ -344,16 +371,22 @@ function Profile() {
                   <i className="bi bi-info-circle" style={{ marginRight: '0.5rem' }}></i>
                   No bank account linked yet.
                 </p>
+
+                <button
+                  
+                  onClick={() => navigate('/bank-setup')} className="btn btn-primary" style={{ width: '100%' }}>
+                  Setup Bank Account
+                </button>
+
               </div>
             )}
 
 
-            {bankStatus && (
+            {bankStatus?.isSetup && (
               <button onClick={() => navigate('/transactions')} className="btn btn-primary" style={{ width: '100%' }}>
                 View Transactions
               </button>
             )}
-
           </div>
 
         </div>
@@ -466,10 +499,9 @@ function Profile() {
                       value={profileForm.email}
                       onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
                       placeholder="Your email"
-                      readOnly
-                      style={{ background: 'var(--color-gray-100)', cursor: 'not-allowed' }}
+
                     />
-                    <small>Email cannot be changed</small>
+
                   </div>
 
                   {/* Class dropdown */}
@@ -559,6 +591,14 @@ function Profile() {
         </div>
       )}
 
+
+      {/* Bank Setup Modal */}
+      {showBankSetup && !bankStatus?.isSetup && (
+        <BankSetup onClose={() => {
+          setShowBankSetup(false);
+          fetchBankStatus();
+        }} />
+      )}
 
 
     </div>

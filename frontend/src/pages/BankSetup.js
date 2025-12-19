@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../App.css';
 
-function BankSetup() {
+function BankSetup({ onClose }) {
   const [secretCode, setSecretCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -58,7 +58,11 @@ function BankSetup() {
       localStorage.setItem('user', JSON.stringify(user));
 
       setTimeout(() => {
-        navigate(user.role === 'instructor' ? '/instructor/home' : '/learner/home');
+        if (onClose) {
+          onClose();
+        } else {
+          navigate(user.role === 'instructor' ? '/instructor/home' : '/learner/home');
+        }
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to setup bank account');
@@ -68,7 +72,11 @@ function BankSetup() {
   };
 
   const handleSkip = () => {
-    navigate(user.role === 'instructor' ? '/instructor/home' : '/learner/home');
+    if (onClose) {
+      onClose();
+    } else {
+      navigate(user.role === 'instructor' ? '/instructor/home' : '/learner/home');
+    }
   };
 
   if (alreadySetup) {
@@ -116,7 +124,7 @@ function BankSetup() {
               background: 'var(--color-secondary-light)',
               borderRadius: 'var(--radius-md)'
             }}>
-               <i className='bi bi-gift-fill' style={{ color: '#C9A961' }}></i> You will receive ৳15,000 as initial balance!
+              <i className='bi bi-gift-fill' style={{ color: '#C9A961' }}></i> You will receive ৳15,000 as initial balance!
             </p>
           )}
         </div>
@@ -153,6 +161,15 @@ function BankSetup() {
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
             <button
+              type="button"
+              onClick={handleSkip}
+              className="btn btn-secondary btn-lg"
+              style={{ flex: 1 }}
+            >
+              Cancel
+            </button>
+
+            <button
               type="submit"
               className="btn btn-primary btn-lg"
               style={{ flex: 1 }}
@@ -160,12 +177,21 @@ function BankSetup() {
             >
               {loading ? 'Setting up...' : 'Setup Bank Account'}
             </button>
-
-
           </div>
+
+          <p style={{
+            textAlign: 'center',
+            marginTop: '1rem',
+            fontSize: '0.85rem',
+            color: 'var(--color-gray-600)'
+          }}>
+            You can set up your bank account later from your profile.
+          </p>
+
+          
         </form>
 
-        
+
       </div>
     </div>
   );

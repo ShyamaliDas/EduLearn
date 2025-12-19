@@ -41,7 +41,7 @@ const upload = multer({
   }
 });
 
-// GET all courses - only show validated AND active courses
+// GET all courses - only validated AND active courses
 router.get('/', async (req, res) => {
   try {
     const courses = await Course.findAll({
@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    console.log(`Fetched ${courses.length} active & validated courses`);
+    
 
     res.json(courses);
   } catch (error) {

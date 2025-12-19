@@ -334,10 +334,30 @@ router.post('/validate-enrollment', async (req, res) => {
     await instructorAcc.save();
     await lmsAccount.save();
 
-    // UPDATE MAIN TRANSACTION TO 'APPROVED' 
-    transaction.status = 'approved';
-    transaction.description = `Enrollment fee for: ${transaction.description.split('Enrollment fee for: ')[1]} - Instructor: ${instructorShare} TK (80%), Bank: ${bankShare} TK (20%)`;
-    await transaction.save();
+    await transaction.destroy();
+
+    // Transaction 1: Learner -> Instructor (80%)
+    const instructorTransaction = await Transaction.create({
+      fromAccount: learnerAcc.accountNumber,
+      toAccount: instructorAcc.accountNumber,
+      amount: instructorShare,
+      description: `Enrollment fee for: ${transaction.description.split('Enrollment fee for: ')[1]} - Instructor (80%)`,
+      status: 'approved',
+      transactionType: 'course_enrollment',
+      relatedId: transaction.relatedId
+    });
+
+    // Transaction 2: Learner -> LMS Org (20%)
+    const bankTransaction = await Transaction.create({
+      fromAccount: learnerAcc.accountNumber,
+      toAccount: LMS_ORG_ACCOUNT,
+      amount: bankShare,
+      description: `Enrollment fee for: ${transaction.description.split('Enrollment fee for: ')[1]} - Bank Commission (20%)`,
+      status: 'approved',
+      transactionType: 'bank_commission',
+      relatedId: transaction.relatedId
+    });
+
 
     // **NOTIFY LMS BACKEND** - Update enrollment status
     try {
@@ -359,7 +379,10 @@ router.post('/validate-enrollment', async (req, res) => {
       message: 'Enrollment validated successfully',
       instructorShare,
       bankShare,
-      transaction
+      transactions: {
+        instructor: instructorTransaction,
+        bank: bankTransaction
+      }
     });
   } catch (error) {
     console.error('Validate enrollment error:', error);
